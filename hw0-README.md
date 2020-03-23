@@ -87,7 +87,7 @@ That should print `hello from cs186` on your terminal. It did this by
 running the `echo` shell command inside a `cs186/environment` docker
 container.
 
-If you are curious to learn more about using Docker, there is [a nice
+/If you are curious to learn more about using Docker, there is [a nice
 tutorial online](https://docker-curriculum.com/).
 
 ## Sharing your computer's drive with Docker containers
