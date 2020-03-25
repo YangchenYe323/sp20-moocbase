@@ -80,7 +80,14 @@ class InnerNode extends BPlusNode {
     public LeafNode get(DataBox key) {
         // TODO(proj2): implement
 
-        return null;
+        //this is the children we'll look at
+        int index = InnerNode.numLessThanEqual(key, keys);
+
+        //bring the children to memory
+        BPlusNode childToLook = BPlusNode.fromBytes(metadata, bufferManager, treeContext, children.get(index));
+
+        return childToLook.get(key);
+
     }
 
     // See BPlusNode.getLeftmostLeaf.

@@ -137,9 +137,14 @@ public class BPlusTree {
     public Optional<RecordId> get(DataBox key) {
         typecheck(key);
         // TODO(proj2): implement
+
+        //get the target leaf node
+        LeafNode leaf = root.get(key);
+
         // TODO(proj4_part3): B+ tree locking
 
-        return Optional.empty();
+        //search for the key in that leaf node
+        return leaf.getKey(key);
     }
 
     /**
