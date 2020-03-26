@@ -10,7 +10,10 @@ import edu.berkeley.cs186.database.databox.DataBox;
 import edu.berkeley.cs186.database.databox.Type;
 import edu.berkeley.cs186.database.memory.BufferManager;
 import edu.berkeley.cs186.database.memory.Page;
+import edu.berkeley.cs186.database.table.Record;
 import edu.berkeley.cs186.database.table.RecordId;
+
+import javax.xml.crypto.Data;
 
 /**
  * A leaf of a B+ tree. Every leaf in a B+ tree of order d stores between d and
@@ -140,8 +143,6 @@ class LeafNode extends BPlusNode {
     // See BPlusNode.get.
     @Override
     public LeafNode get(DataBox key) {
-        // TODO(proj2): implement
-
         return this;
     }
 
@@ -156,8 +157,59 @@ class LeafNode extends BPlusNode {
     // See BPlusNode.put.
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
-        // TODO(proj2): implement
 
+        //if the key is already present, do nothing and throw an exception
+        if (keys.contains(key))
+        {
+            String msg = String.format("Key %s has already existed", key.toString());
+            throw new BPlusTreeException(msg);
+        }
+
+        //add the data pair
+        //keep the key list sorted
+        int i;
+        for (i = 0; i < keys.size() && keys.get(i).compareTo(key) < 0; ++i);
+        keys.add(i, key);
+        rids.add(i, rid);
+
+        //check overflow
+        int n = keys.size();
+        if (n > metadata.getOrder()*2){
+
+            DataBox split = keys.get(n/2);
+            //prepare to split
+            //get a new page for the new leaf node
+            Page p = bufferManager.fetchNewPage(treeContext, metadata.getPartNum(), false);
+            //the key-record pair for the new leaf
+            List<DataBox> splitKey = keys.subList(n/2, n);
+            List<RecordId> splitRecord = rids.subList(n/2, n);
+            //the right sibling of the new right page is
+            //the right sibling of the current page
+            Optional<Long> newLeafRightSibling = this.rightSibling;
+            //the new right sibling of the current leaf is the page number of
+            //the newly created leaf
+            Optional<Long> currentLeafNewRightSibling = Optional.of(p.getPageNum());
+
+            //create new leaf and sync it to disk
+            BPlusNode splitLeaf = new LeafNode(metadata, bufferManager, p, splitKey, splitRecord, newLeafRightSibling, treeContext);
+
+            //update current right sibling pointer and keys and rids
+            this.rightSibling = currentLeafNewRightSibling;
+            keys = keys.subList(0, n/2);
+            rids = rids.subList(0, n/2);
+
+            //sync the change to the disc
+            this.sync();
+
+            //return the <split, pageNum> pair to the parent to adjust their state
+            Pair<DataBox, Long> pair = new Pair<>(split, p.getPageNum());
+            return Optional.of(pair);
+        }
+
+        //sync the change to the disc
+        this.sync();
+
+        //no overflow, return empty
         return Optional.empty();
     }
 
@@ -173,9 +225,18 @@ class LeafNode extends BPlusNode {
     // See BPlusNode.remove.
     @Override
     public void remove(DataBox key) {
-        // TODO(proj2): implement
 
-        return;
+        int index = keys.indexOf(key);
+
+        //if the key is present
+        if (index >= 0)
+        {
+            keys.remove(index);
+            rids.remove(index);
+
+            sync();
+        }
+
     }
 
     // Iterators /////////////////////////////////////////////////////////////////

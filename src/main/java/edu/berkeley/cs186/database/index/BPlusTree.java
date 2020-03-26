@@ -3,6 +3,7 @@ package edu.berkeley.cs186.database.index;
 import java.io.IOException;
 import java.io.FileWriter;
 import java.io.UncheckedIOException;
+import java.net.HttpRetryException;
 import java.util.*;
 
 import edu.berkeley.cs186.database.TransactionContext;
@@ -14,7 +15,10 @@ import edu.berkeley.cs186.database.databox.DataBox;
 import edu.berkeley.cs186.database.databox.Type;
 import edu.berkeley.cs186.database.io.DiskSpaceManager;
 import edu.berkeley.cs186.database.memory.BufferManager;
+import edu.berkeley.cs186.database.memory.Page;
 import edu.berkeley.cs186.database.table.RecordId;
+
+import javax.xml.crypto.Data;
 
 /**
  * A persistent B+ tree.
@@ -242,10 +246,29 @@ public class BPlusTree {
      */
     public void put(DataBox key, RecordId rid) {
         typecheck(key);
-        // TODO(proj2): implement
+
+        Optional<Pair<DataBox, Long>> result = root.put(key, rid);
+
+        //if the root is splited and need a new root
+        if (!result.equals(Optional.empty()))
+        {
+            //allocate a new page for the new root
+            Page p = bufferManager.fetchNewPage(lockContext, metadata.getPartNum(), false);
+
+            //the new root has one key, the returned split key
+            //and point to the splitted two pages
+            List<DataBox> k = new ArrayList<>();
+            List<Long> child = new ArrayList<>();
+
+            k.add(result.get().getFirst());
+            child.add(root.getPage().getPageNum());
+            child.add(result.get().getSecond());
+
+            root = new InnerNode(metadata, bufferManager, p, k, child, lockContext);
+        }
+
         // TODO(proj4_part3): B+ tree locking
 
-        return;
     }
 
     /**
@@ -285,10 +308,7 @@ public class BPlusTree {
      */
     public void remove(DataBox key) {
         typecheck(key);
-        // TODO(proj2): implement
-        // TODO(proj4_part3): B+ tree locking
-
-        return;
+        root.remove(key);
     }
 
     // Helpers /////////////////////////////////////////////////////////////////

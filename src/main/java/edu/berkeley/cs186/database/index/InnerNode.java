@@ -58,8 +58,8 @@ class InnerNode extends BPlusNode {
     /**
      * Construct an inner node that is persisted to page `page`.
      */
-    private InnerNode(BPlusTreeMetadata metadata, BufferManager bufferManager, Page page,
-                      List<DataBox> keys, List<Long> children, LockContext treeContext) {
+    InnerNode(BPlusTreeMetadata metadata, BufferManager bufferManager, Page page,
+              List<DataBox> keys, List<Long> children, LockContext treeContext) {
         assert(keys.size() <= 2 * metadata.getOrder());
         assert(keys.size() + 1 == children.size());
 
@@ -78,7 +78,6 @@ class InnerNode extends BPlusNode {
     // See BPlusNode.get.
     @Override
     public LeafNode get(DataBox key) {
-        // TODO(proj2): implement
 
         //this is the children we'll look at
         int index = InnerNode.numLessThanEqual(key, keys);
@@ -104,8 +103,56 @@ class InnerNode extends BPlusNode {
     // See BPlusNode.put.
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
-        // TODO(proj2): implement
 
+        //find the child to look
+        int index = InnerNode.numLessThanEqual(key, keys);
+
+        //bring the children to memory
+        BPlusNode childToLook = BPlusNode.fromBytes(metadata, bufferManager, treeContext, children.get(index));
+
+        Optional<Pair<DataBox, Long>> result = childToLook.put(key, rid);
+
+        //if child has overflowed
+        if (!result.equals(Optional.empty()))
+        {
+            Long newChildPageNum = result.get().getSecond();
+            DataBox splitKey = result.get().getFirst();
+
+            //the key should go right after the index we selected
+            //and the new pointer should go two places after the index
+            keys.add(index+1, splitKey);
+            children.add(index + 2, newChildPageNum);
+
+            //check if self overflowed
+            int n = keys.size();
+            if (n > metadata.getOrder()*2)
+            {
+                //split key
+                DataBox split = keys.get(n/2);
+
+                //prepare new inner node
+                Page p = bufferManager.fetchNewPage(treeContext, metadata.getPartNum(), false);
+
+                List<DataBox> splitKeys = keys.subList(n/2 + 1, n);
+                List<Long> splitPageNum = children.subList(n/2+1, n);
+
+                //create new inner node and send it to disk
+                BPlusNode newInner = new InnerNode(metadata, bufferManager, p, splitKeys, splitPageNum, treeContext);
+
+                //modify the current inner node
+                keys = keys.subList(0, n/2);
+                children = children.subList(0, n/2+1);
+
+                sync();
+
+                //return the pair to the parent for them to adjust their states
+                return Optional.of(new Pair<DataBox, Long>(split, p.getPageNum()));
+            }
+
+        }
+
+        //no overflow
+        sync();
         return Optional.empty();
     }
 
@@ -121,9 +168,11 @@ class InnerNode extends BPlusNode {
     // See BPlusNode.remove.
     @Override
     public void remove(DataBox key) {
-        // TODO(proj2): implement
 
-        return;
+        //find the child to look
+        int index = InnerNode.numLessThanEqual(key, keys);
+        BPlusNode childToLook = BPlusNode.fromBytes(metadata, bufferManager, treeContext, children.get(index));
+        childToLook.remove(key);
     }
 
     // Helpers ///////////////////////////////////////////////////////////////////
