@@ -14,10 +14,13 @@ import edu.berkeley.cs186.database.concurrency.LockUtil;
 import edu.berkeley.cs186.database.databox.DataBox;
 import edu.berkeley.cs186.database.databox.Type;
 import edu.berkeley.cs186.database.io.DiskSpaceManager;
+import edu.berkeley.cs186.database.io.PageException;
 import edu.berkeley.cs186.database.memory.BufferManager;
 import edu.berkeley.cs186.database.memory.Page;
+import edu.berkeley.cs186.database.table.Record;
 import edu.berkeley.cs186.database.table.RecordId;
 
+import javax.swing.text.html.Option;
 import javax.xml.crypto.Data;
 
 /**
@@ -198,10 +201,9 @@ public class BPlusTree {
      * memory will receive 0 points.
      */
     public Iterator<RecordId> scanAll() {
-        // TODO(proj2): Return a BPlusTreeIterator.
         // TODO(proj4_part3): B+ tree locking
 
-        return Collections.emptyIterator();
+        return new BPlusTreeIterator(root);
     }
 
     /**
@@ -229,10 +231,17 @@ public class BPlusTree {
      */
     public Iterator<RecordId> scanGreaterEqual(DataBox key) {
         typecheck(key);
-        // TODO(proj2): Return a BPlusTreeIterator.
-        // TODO(proj4_part3): B+ tree locking
 
-        return Collections.emptyIterator();
+        LeafNode targetLeafNode = root.get(key);
+        int startPosition = targetLeafNode.getKeys().indexOf(key);
+
+        if (startPosition == -1)
+        {
+            throw new BPlusTreeException("The key is not present");
+        }
+
+        return new BPlusTreeIterator(targetLeafNode, startPosition);
+
     }
 
     /**
@@ -454,20 +463,53 @@ public class BPlusTree {
 
     // Iterator ////////////////////////////////////////////////////////////////
     private class BPlusTreeIterator implements Iterator<RecordId> {
-        // TODO(proj2): Add whatever fields and constructors you want here.
+
+        LeafNode currentNode;
+        int cursor;
+
+        public BPlusTreeIterator(BPlusNode root)
+        {
+            currentNode = root.getLeftmostLeaf();
+            cursor = 0;
+        }
+
+        public BPlusTreeIterator(LeafNode startNode, int startPosition){
+            this.currentNode = startNode;
+            this.cursor = startPosition;
+        }
 
         @Override
         public boolean hasNext() {
-            // TODO(proj2): implement
-
-            return false;
+            //there are two cases where there is no next element
+            //1. if the tree is already empty, i.e., contains an initial
+            //leaf node that has no element,
+            //the node's key list is empty
+            //2. if the tree is not empty, then we
+            //run out of next element when we proceed to a null page
+            return currentNode != null && !currentNode.getRids().isEmpty();
         }
 
         @Override
         public RecordId next() {
-            // TODO(proj2): implement
 
-            throw new NoSuchElementException();
+            //this is the result id we're going to
+            RecordId result = currentNode.getRids().get(cursor);
+
+            //advance cursor
+            //if this page is out,
+            //proceed to the next
+            ++cursor;
+            if (cursor == currentNode.getRids().size())
+            {
+                cursor = 0;
+                try {
+                    currentNode = currentNode.getRightSibling().get();
+                } catch (PageException e) {
+                    currentNode = null;
+                }
+            }
+
+            return result;
         }
     }
 }
