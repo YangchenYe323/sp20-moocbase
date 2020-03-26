@@ -12,6 +12,8 @@ import edu.berkeley.cs186.database.memory.BufferManager;
 import edu.berkeley.cs186.database.memory.Page;
 import edu.berkeley.cs186.database.table.RecordId;
 
+import javax.xml.crypto.Data;
+
 /**
  * A inner node of a B+ tree. Every inner node in a B+ tree of order d stores
  * between d and 2d keys. An inner node with n keys stores n + 1 "pointers" to
@@ -127,26 +129,7 @@ class InnerNode extends BPlusNode {
             int n = keys.size();
             if (n > metadata.getOrder()*2)
             {
-                //split key
-                DataBox split = keys.get(n/2);
-
-                //prepare new inner node
-                Page p = bufferManager.fetchNewPage(treeContext, metadata.getPartNum(), false);
-
-                List<DataBox> splitKeys = keys.subList(n/2 + 1, n);
-                List<Long> splitPageNum = children.subList(n/2+1, n+1);
-
-                //create new inner node and send it to disk
-                BPlusNode newInner = new InnerNode(metadata, bufferManager, p, splitKeys, splitPageNum, treeContext);
-
-                //modify the current inner node
-                keys = keys.subList(0, n/2);
-                children = children.subList(0, n/2+1);
-
-                sync();
-
-                //return the pair to the parent for them to adjust their states
-                return Optional.of(new Pair<DataBox, Long>(split, p.getPageNum()));
+               return split();
             }
 
         }
@@ -160,9 +143,69 @@ class InnerNode extends BPlusNode {
     @Override
     public Optional<Pair<DataBox, Long>> bulkLoad(Iterator<Pair<DataBox, RecordId>> data,
             float fillFactor) {
-        // TODO(proj2): implement
+
+
+        //bring the children to memory
+        BPlusNode childToLook = BPlusNode.fromBytes(metadata, bufferManager, treeContext, children.get(children.size()-1));
+
+        Optional<Pair<DataBox, Long>> result;
+
+        //if child has overflowed
+        while (!(result = childToLook.bulkLoad(data, fillFactor)).equals(Optional.empty()))
+        {
+            Long newChildPageNum = result.get().getSecond();
+            DataBox splitKey = result.get().getFirst();
+
+            //the key should go right after the index we selected
+            //and the new pointer should go two places after the index
+            keys.add(splitKey);
+            children.add(newChildPageNum);
+
+            //check if self overflowed
+            int n = keys.size();
+            if (n > metadata.getOrder()*2)
+            {
+               return split();
+            }
+
+            childToLook = BPlusNode.fromBytes(metadata, bufferManager, treeContext, children.get(children.size()-1));
+
+        }
+
+
+        sync();
 
         return Optional.empty();
+    }
+
+    /**
+     * split the current node in the middle
+     * @param
+     * @return
+     */
+    private Optional<Pair<DataBox, Long>> split()
+    {
+        //split key is n/2
+        int n = keys.size();
+        DataBox split = keys.get(n/2);
+
+        //prepare new inner node
+        Page p = bufferManager.fetchNewPage(treeContext, metadata.getPartNum(), false);
+
+        List<DataBox> splitKeys = keys.subList(n/2 + 1, n);
+        List<Long> splitPageNum = children.subList(n/2+1, n+1);
+
+        //create new inner node and send it to disk
+        BPlusNode newInner = new InnerNode(metadata, bufferManager, p, splitKeys, splitPageNum, treeContext);
+
+        //modify the current inner node
+        keys = keys.subList(0, n/2);
+        children = children.subList(0, n/2+1);
+
+        sync();
+
+        //return the pair to the parent for them to adjust their states
+        return Optional.of(new Pair<DataBox, Long>(split, p.getPageNum()));
     }
 
     // See BPlusNode.remove.

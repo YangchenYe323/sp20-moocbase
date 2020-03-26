@@ -139,6 +139,7 @@ public class TestBPlusTree {
         String leaf2 = "((7 (7 7)) (8 (8 8)) (9 (9 9)))";
         String leaf3 = "((10 (10 10)) (11 (11 11)))";
         String sexp = String.format("(%s 4 %s 7 %s 10 %s)", leaf0, leaf1, leaf2, leaf3);
+        tree.toDotPDFFile("tree5.pdf");
         assertEquals(sexp, tree.toSexp());
     }
 
@@ -404,24 +405,23 @@ public class TestBPlusTree {
         List<DataBox> keys = new ArrayList<>();
         List<RecordId> rids = new ArrayList<>();
         List<RecordId> sortedRids = new ArrayList<>();
-        for (int i = 0; i < 20; ++i) {
+        for (int i = 0; i < 1000; ++i) {
             keys.add(new IntDataBox(i));
             rids.add(new RecordId(i, (short) i));
             sortedRids.add(new RecordId(i, (short) i));
         }
 
         // Try trees with different orders.
-        for (int d = 2; d < 3; ++d) {
+        for (int d = 4; d < 5; ++d) {
             // Try trees with different insertion orders.
             for (int n = 0; n < 2; ++n) {
-                //Collections.shuffle(keys, new Random(42));
-                //Collections.shuffle(rids, new Random(42));
+                Collections.shuffle(keys, new Random(42));
+                Collections.shuffle(rids, new Random(42));
 
                 // Insert all the keys.
                 BPlusTree tree = getBPlusTree(Type.intType(), d);
                 for (int i = 0; i < keys.size(); ++i) {
                     tree.put(keys.get(i), rids.get(i));
-                    tree.toDotPDFFile("tree2.pdf");
                 }
 
                 // Test get.

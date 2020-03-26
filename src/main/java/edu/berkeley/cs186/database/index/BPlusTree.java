@@ -249,10 +249,11 @@ public class BPlusTree {
 
         Optional<Pair<DataBox, Long>> result = root.put(key, rid);
 
-        //if the root is splited and need a new root
+        //if the root is split and need a new root
+        //allocate a new root node and point to
+        //the split two node
         if (!result.equals(Optional.empty()))
         {
-            System.out.println("Root Split");
             //allocate a new page for the new root
             Page p = bufferManager.fetchNewPage(lockContext, metadata.getPartNum(), false);
 
@@ -261,8 +262,11 @@ public class BPlusTree {
             List<DataBox> k = new ArrayList<>();
             List<Long> child = new ArrayList<>();
 
+            //the new root's key is the split key
             k.add(result.get().getFirst());
+            //left pointer point to old root
             child.add(root.getPage().getPageNum());
+            //right pointer point to split root
             child.add(result.get().getSecond());
 
             root = new InnerNode(metadata, bufferManager, p, k, child, lockContext);
@@ -290,10 +294,42 @@ public class BPlusTree {
      * bulkLoad (see comments in BPlusNode.bulkLoad).
      */
     public void bulkLoad(Iterator<Pair<DataBox, RecordId>> data, float fillFactor) {
-        // TODO(proj2): implement
-        // TODO(proj4_part3): B+ tree locking
 
-        return;
+        //if the tree is not empty, throw an exception
+        if (!isEmpty())
+        {
+            String msg = String.format("Cannot load data to nonempty tree", null);
+            throw new BPlusTreeException(msg);
+        }
+
+        Optional<Pair<DataBox, Long>> result;
+
+        //if the root is split and need a new root
+        //allocate a new root node and point to
+        //the split two node
+        while (!(result = root.bulkLoad(data, fillFactor)).equals(Optional.empty()))
+        {
+            //allocate a new page for the new root
+            Page p = bufferManager.fetchNewPage(lockContext, metadata.getPartNum(), false);
+
+            //the new root has one key, the returned split key
+            //and point to the splitted two pages
+            List<DataBox> k = new ArrayList<>();
+            List<Long> child = new ArrayList<>();
+
+            //the new root's key is the split key
+            k.add(result.get().getFirst());
+            //left pointer point to old root
+            child.add(root.getPage().getPageNum());
+            //right pointer point to split root
+            child.add(result.get().getSecond());
+
+            root = new InnerNode(metadata, bufferManager, p, k, child, lockContext);
+        }
+
+
+
+        // TODO(proj4_part3): B+ tree locking
     }
 
     /**
@@ -406,6 +442,14 @@ public class BPlusTree {
             String msg = String.format("DataBox %s is not of type %s", key, t);
             throw new IllegalArgumentException(msg);
         }
+    }
+
+    /**
+     * check if the tree is empty
+     * @return
+     */
+    private boolean isEmpty(){
+        return root.getLeftmostLeaf().getKeys().isEmpty();
     }
 
     // Iterator ////////////////////////////////////////////////////////////////
