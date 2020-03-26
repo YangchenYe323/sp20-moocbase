@@ -252,6 +252,7 @@ public class BPlusTree {
         //if the root is splited and need a new root
         if (!result.equals(Optional.empty()))
         {
+            System.out.println("Root Split");
             //allocate a new page for the new root
             Page p = bufferManager.fetchNewPage(lockContext, metadata.getPartNum(), false);
 

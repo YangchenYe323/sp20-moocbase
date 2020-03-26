@@ -120,8 +120,8 @@ class InnerNode extends BPlusNode {
 
             //the key should go right after the index we selected
             //and the new pointer should go two places after the index
-            keys.add(index+1, splitKey);
-            children.add(index + 2, newChildPageNum);
+            keys.add(index, splitKey);
+            children.add(index + 1, newChildPageNum);
 
             //check if self overflowed
             int n = keys.size();
@@ -134,7 +134,7 @@ class InnerNode extends BPlusNode {
                 Page p = bufferManager.fetchNewPage(treeContext, metadata.getPartNum(), false);
 
                 List<DataBox> splitKeys = keys.subList(n/2 + 1, n);
-                List<Long> splitPageNum = children.subList(n/2+1, n);
+                List<Long> splitPageNum = children.subList(n/2+1, n+1);
 
                 //create new inner node and send it to disk
                 BPlusNode newInner = new InnerNode(metadata, bufferManager, p, splitKeys, splitPageNum, treeContext);

@@ -404,24 +404,24 @@ public class TestBPlusTree {
         List<DataBox> keys = new ArrayList<>();
         List<RecordId> rids = new ArrayList<>();
         List<RecordId> sortedRids = new ArrayList<>();
-        for (int i = 0; i < 10; ++i) {
+        for (int i = 0; i < 20; ++i) {
             keys.add(new IntDataBox(i));
             rids.add(new RecordId(i, (short) i));
             sortedRids.add(new RecordId(i, (short) i));
         }
 
         // Try trees with different orders.
-        //for (int d = 2; d < 5; ++d) {
+        for (int d = 2; d < 3; ++d) {
             // Try trees with different insertion orders.
-            //for (int n = 0; n < 2; ++n) {
-                int d = 4;
-                Collections.shuffle(keys, new Random(42));
-                Collections.shuffle(rids, new Random(42));
+            for (int n = 0; n < 2; ++n) {
+                //Collections.shuffle(keys, new Random(42));
+                //Collections.shuffle(rids, new Random(42));
 
                 // Insert all the keys.
                 BPlusTree tree = getBPlusTree(Type.intType(), d);
                 for (int i = 0; i < keys.size(); ++i) {
                     tree.put(keys.get(i), rids.get(i));
+                    tree.toDotPDFFile("tree2.pdf");
                 }
 
                 // Test get.
@@ -450,8 +450,8 @@ public class TestBPlusTree {
                     fromDisk.remove(key);
                     assertEquals(Optional.empty(), fromDisk.get(key));
                 }
-            //}
-        //}
+            }
+        }
     }
 
     @Test
