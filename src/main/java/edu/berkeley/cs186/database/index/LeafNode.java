@@ -178,35 +178,7 @@ class LeafNode extends BPlusNode {
         //check overflow
         int n = keys.size();
         if (n > metadata.getOrder()*2){
-
-            DataBox split = keys.get(n/2);
-            //prepare to split
-            //get a new page for the new leaf node
-            Page p = bufferManager.fetchNewPage(treeContext, metadata.getPartNum(), false);
-            //the key-record pair for the new leaf
-            List<DataBox> splitKey = keys.subList(n/2, n);
-            List<RecordId> splitRecord = rids.subList(n/2, n);
-            //the right sibling of the new right page is
-            //the right sibling of the current page
-            Optional<Long> newLeafRightSibling = this.rightSibling;
-            //the new right sibling of the current leaf is the page number of
-            //the newly created leaf
-            Optional<Long> currentLeafNewRightSibling = Optional.of(p.getPageNum());
-
-            //create new leaf and sync it to disk
-            BPlusNode splitLeaf = new LeafNode(metadata, bufferManager, p, splitKey, splitRecord, newLeafRightSibling, treeContext);
-
-            //update current right sibling pointer and keys and rids
-            this.rightSibling = currentLeafNewRightSibling;
-            keys = keys.subList(0, n/2);
-            rids = rids.subList(0, n/2);
-
-            //sync the change to the disc
-            this.sync();
-
-            //return the <split, pageNum> pair to the parent to adjust their state
-            Pair<DataBox, Long> pair = new Pair<>(split, p.getPageNum());
-            return Optional.of(pair);
+           return split(n/2);
         }
 
         //sync the change to the disc
@@ -233,36 +205,7 @@ class LeafNode extends BPlusNode {
             //if fill, split
             int n = keys.size();
             if (n > Math.ceil(2 * metadata.getOrder() * fillFactor)) {
-
-                //split key is the last one
-                DataBox split = keys.get(n - 1);
-                //prepare to split
-                //get a new page for the new leaf node
-                Page p = bufferManager.fetchNewPage(treeContext, metadata.getPartNum(), false);
-                //the key-record pair for the new leaf
-                List<DataBox> splitKey = keys.subList(n - 1, n);
-                List<RecordId> splitRecord = rids.subList(n - 1, n);
-                //the right sibling of the new right page is
-                //the right sibling of the current page
-                Optional<Long> newLeafRightSibling = this.rightSibling;
-                //the new right sibling of the current leaf is the page number of
-                //the newly created leaf
-                Optional<Long> currentLeafNewRightSibling = Optional.of(p.getPageNum());
-
-                //create new leaf and sync it to disk
-                BPlusNode splitLeaf = new LeafNode(metadata, bufferManager, p, splitKey, splitRecord, newLeafRightSibling, treeContext);
-
-                //update current right sibling pointer and keys and rids
-                this.rightSibling = currentLeafNewRightSibling;
-                keys = keys.subList(0, n - 1);
-                rids = rids.subList(0, n - 1);
-
-                //sync the change to the disc
-                this.sync();
-
-                //return the <split, pageNum> pair to the parent to adjust their state
-                Pair<DataBox, Long> pair = new Pair<>(split, p.getPageNum());
-                return Optional.of(pair);
+                return split(n - 1);
             }
 
         }
@@ -270,6 +213,44 @@ class LeafNode extends BPlusNode {
         //not fill
         this.sync();
         return Optional.empty();
+    }
+
+
+    /**
+     * Utility function to handle leaf node split
+     * @param splitIndex
+     * @return
+     */
+    private Optional<Pair<DataBox, Long>> split(int splitIndex){
+
+        DataBox split = keys.get(splitIndex);
+        //prepare to split
+        //get a new page for the new leaf node
+        Page p = bufferManager.fetchNewPage(treeContext, metadata.getPartNum(), false);
+        //the key-record pair for the new leaf
+        List<DataBox> splitKey = keys.subList(splitIndex, keys.size());
+        List<RecordId> splitRecord = rids.subList(splitIndex, keys.size());
+        //the right sibling of the new right page is
+        //the right sibling of the current page
+        Optional<Long> newLeafRightSibling = this.rightSibling;
+        //the new right sibling of the current leaf is the page number of
+        //the newly created leaf
+        Optional<Long> currentLeafNewRightSibling = Optional.of(p.getPageNum());
+
+        //create new leaf and sync it to disk
+        new LeafNode(metadata, bufferManager, p, splitKey, splitRecord, newLeafRightSibling, treeContext);
+
+        //update current right sibling pointer and keys and rids
+        this.rightSibling = currentLeafNewRightSibling;
+        keys = keys.subList(0, splitIndex);
+        rids = rids.subList(0, splitIndex);
+
+        //sync the change to the disc
+        this.sync();
+
+        //return the <split, pageNum> pair to the parent to adjust their state
+        Pair<DataBox, Long> pair = new Pair<>(split, p.getPageNum());
+        return Optional.of(pair);
     }
 
     // See BPlusNode.remove.
