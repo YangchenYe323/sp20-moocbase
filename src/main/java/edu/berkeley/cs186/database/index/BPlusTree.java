@@ -478,6 +478,11 @@ public class BPlusTree {
             this.cursor = startPosition;
         }
 
+        /*Potential bug: we're assuming there cannot be an empty page between two
+        * pages. this is fine with a strictly correct B+ tree. but might not work
+        * with our implementation, that doesn't re-balance the tree after removal
+        * (it is possible for us to empty one page in the middle of the tree)*/
+
         @Override
         public boolean hasNext() {
             //there are two cases where there is no next element
@@ -505,6 +510,9 @@ public class BPlusTree {
                 try {
                     currentNode = currentNode.getRightSibling().get();
                 } catch (PageException e) {
+                    //if we cannot fetch the next page,
+                    //set it to null to indicate we have
+                    //run out of element
                     currentNode = null;
                 }
             }
