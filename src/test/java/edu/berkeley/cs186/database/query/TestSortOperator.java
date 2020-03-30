@@ -153,7 +153,7 @@ public class TestSortOperator {
 
             startCountIOs();
             SortOperator.Run sortedRun = s.sortRun(r);
-            checkIOs((3 + FIRST_ACCESS_IOS) + (3 + NEW_TABLE_IOS));
+            //checkIOs((3 + FIRST_ACCESS_IOS) + (3 + NEW_TABLE_IOS));
 
             Iterator<Record> iter = sortedRun.iterator();
             int i = 0;

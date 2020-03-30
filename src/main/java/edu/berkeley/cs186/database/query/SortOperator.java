@@ -2,12 +2,15 @@ package edu.berkeley.cs186.database.query;
 
 import edu.berkeley.cs186.database.TransactionContext;
 import edu.berkeley.cs186.database.DatabaseException;
+import edu.berkeley.cs186.database.common.iterator.ArrayBacktrackingIterator;
 import edu.berkeley.cs186.database.common.iterator.BacktrackingIterator;
 import edu.berkeley.cs186.database.databox.DataBox;
 import edu.berkeley.cs186.database.table.Record;
 import edu.berkeley.cs186.database.table.Schema;
 import edu.berkeley.cs186.database.common.Pair;
 import edu.berkeley.cs186.database.memory.Page;
+
+import java.util.PriorityQueue;
 
 import java.util.*;
 
@@ -71,9 +74,20 @@ public class SortOperator {
      * size of the buffer, but it is done this way for ease.
      */
     public Run sortRun(Run run) {
-        // TODO(proj3_part1): implement
 
-        return null;
+        Iterator<Record> iter = run.iterator();
+
+        List<Record> unsorted = new ArrayList<>();
+        while (iter.hasNext()){
+            unsorted.add(iter.next());
+        }
+        unsorted.sort(this.comparator);
+        Record[] sorted = new Record[unsorted.size()];
+        for (int i = 0; i < unsorted.size(); ++i){
+            sorted[i] = unsorted.get(i);
+        }
+
+        return createRunFromIterator(new ArrayBacktrackingIterator<>(sorted));
     }
 
     /**
@@ -85,9 +99,34 @@ public class SortOperator {
      * sorting on currently unmerged from run i.
      */
     public Run mergeSortedRuns(List<Run> runs) {
-        // TODO(proj3_part1): implement
 
-        return null;
+        Run sortedrun = createRun();
+
+        PriorityQueue<Pair<Record, Integer>> workQueue = new PriorityQueue<>((o1, o2) -> comparator.compare(o1.getFirst(), o2.getFirst()));
+        List<Iterator<Record>> iterList = new ArrayList<>();
+        for (Run run: runs){
+            iterList.add(run.iterator());
+        }
+
+        //populate the first round
+        populate(workQueue, iterList);
+
+        while (!workQueue.isEmpty()){
+            Pair<Record, Integer> nextPair = workQueue.poll();
+            sortedrun.addRecord(nextPair.getFirst().getValues());
+            int index = nextPair.getSecond();
+            if (iterList.get(index).hasNext())
+                workQueue.add(new Pair<>(iterList.get(index).next(), index));
+        }
+
+        return sortedrun;
+    }
+
+    private void populate(PriorityQueue<Pair<Record, Integer>> workQueue, List<Iterator<Record>> iterList){
+        for (int i = 0; i < iterList.size(); ++i){
+            if (iterList.get(i).hasNext())
+                workQueue.add(new Pair<>(iterList.get(i).next(), i));
+        }
     }
 
     /**
@@ -98,9 +137,16 @@ public class SortOperator {
      * perfect multiple.
      */
     public List<Run> mergePass(List<Run> runs) {
-        // TODO(proj3_part1): implement
+        List<Run> result = new ArrayList<>();
 
-        return Collections.emptyList();
+        int groupSize = numBuffers - 1;
+
+        for (int i = 0; i < runs.size(); i += groupSize){
+            List<Run> subruns = runs.subList(i, Math.min(i + groupSize, runs.size()));
+            result.add(mergeSortedRuns(subruns));
+        }
+
+        return result;
     }
 
     /**
@@ -109,9 +155,45 @@ public class SortOperator {
      * Returns the name of the table that backs the final run.
      */
     public String sort() {
-        // TODO(proj3_part1): implement
 
-        return this.tableName; // TODO(proj3_part1): replace this!
+        //this is the number of record in one run
+        int numOfRecord = transaction.getTable(tableName).getNumRecordsPerPage() * (numBuffers - 1);
+
+        //we get record through this iterator
+        Iterator<Record> iter = transaction.getTable(tableName).iterator();
+
+        //place to hold list of our sorted runs
+        List<Run> initialRun = new ArrayList<>();
+
+        //place to hold temporary record (that is to be stored in runs)
+        Record[] tmp = new Record[numOfRecord];
+        int count = 0;
+        while (iter.hasNext()){
+            Record nextR = iter.next();
+            tmp[count] = nextR;
+            count++;
+            if (count == numOfRecord){
+                count = 0;
+                //pass 0
+                initialRun.add(sortRun(createRunFromIterator(new ArrayBacktrackingIterator<>(tmp))));
+                tmp = new Record[numOfRecord];
+            }
+
+            //this is the last run we have, may not have numOfRecord size
+            if (!iter.hasNext()){
+                Record[] shortTmp = new Record[count];
+                System.arraycopy(tmp, 0, shortTmp, 0, count);
+                //pass 0
+                initialRun.add(sortRun(createRunFromIterator(new ArrayBacktrackingIterator<>(shortTmp))));
+            }
+        }
+
+        //merge until we get only one run left
+        while (initialRun.size() != 1){
+            initialRun = mergePass(initialRun);
+        }
+
+        return initialRun.get(0).tableName();
     }
 
     public Iterator<Record> iterator() {
@@ -208,5 +290,6 @@ public class SortOperator {
             return SortOperator.this.comparator.compare(o1.getFirst(), o2.getFirst());
         }
     }
+
 }
 

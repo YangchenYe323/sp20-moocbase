@@ -58,31 +58,20 @@ class BNLJOperator extends JoinOperator {
         private BacktrackingIterator<Record> leftRecordIterator = null;
         // Iterator over records in the current right page
         private BacktrackingIterator<Record> rightRecordIterator = null;
-        private boolean hasNetRightPage;
-        // The current record on the left page
-        private Record leftRecord = null;
-        private Record rightRecord = null;
+
+        private Record leftRecord;
+        private Record rightRecord;
+
         // The next record to return
         private Record nextRecord = null;
 
-        //max block size, numbuffer -2
+        //max block size is B - 2
         int maxPage;
-
-        //leftBlock is an array of pages holding
-        //all the in-memory left page
-        List<Page> leftBlock;
-        Page leftPage;
-        int currentPageIndex;
-        //buffer to stream right pages
-        Page rightPage;
 
         private BNLJIterator() {
             super();
 
             this.maxPage = BNLJOperator.this.numBuffers - 2;
-
-            leftBlock = new ArrayList<>();
-            rightPage = null;
 
             this.leftIterator = BNLJOperator.this.getPageIterator(this.getLeftTableName());
             fetchNextLeftBlock();
@@ -122,21 +111,6 @@ class BNLJOperator extends JoinOperator {
 
         }
 
-        /*private void fetchNextLeftRecordInBlock(){
-            if (leftRecordIterator == null) throw new NoSuchElementException("No more records");
-
-            //iterate through the block in memory
-            if (leftRecordIterator.hasNext())
-                leftRecord = leftRecordIterator.next();
-            else{
-                //bring another block
-                fetchNextLeftBlock();
-            }
-
-        }*/
-
-
-
         /**
          * Fetch the next non-empty page from the right relation. rightRecordIterator
          * should be set to a record iterator over the next page of the right relation that
@@ -164,7 +138,6 @@ class BNLJOperator extends JoinOperator {
          */
         private void fetchNextRecord() {
 
-
             nextRecord = null;
             while (nextRecord == null){
                 if (leftRecord != null) {
@@ -191,9 +164,13 @@ class BNLJOperator extends JoinOperator {
                             leftRecord = leftRecordIterator.next();
                         }
                         else{
+                            //work on this left block is all complete,
+                            //try to bring in another left block
                             fetchNextLeftBlock();
-                            //now we are done!
+                            //no more blocks, now we are done!
                             if (leftRecordIterator == null) throw new NoSuchElementException();
+
+                            //reset the records
                             leftRecord = leftRecordIterator.next();
                             rightIterator.reset();
                             fetchNextRightPage();
