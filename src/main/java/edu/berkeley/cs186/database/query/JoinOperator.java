@@ -82,19 +82,31 @@ abstract class JoinOperator extends QueryOperator {
     public Schema computeSchema() {
         Schema leftSchema = this.leftSource.getOutputSchema();
         Schema rightSchema = this.rightSource.getOutputSchema();
+
         List<String> leftSchemaNames = new ArrayList<>(leftSchema.getFieldNames());
         List<String> rightSchemaNames = new ArrayList<>(rightSchema.getFieldNames());
+
+        /*BEGIN: Join column check*/
+        /*The column should exists unambiguously in each table*/
+        /*If this condition is not met, the exception we cannot handle, throw it upward*/
         this.leftColumnName = this.checkSchemaForColumn(leftSchema, this.leftColumnName);
         this.leftColumnIndex = leftSchemaNames.indexOf(leftColumnName);
+
         this.rightColumnName = this.checkSchemaForColumn(rightSchema, this.rightColumnName);
         this.rightColumnIndex = rightSchemaNames.indexOf(rightColumnName);
+        /*END: Join column matching check*/
+
         List<Type> leftSchemaTypes = new ArrayList<>(leftSchema.getFieldTypes());
         List<Type> rightSchemaTypes = new ArrayList<>(rightSchema.getFieldTypes());
+
+        /*Check: the Join column should be of the same type so that they can be compared*/
         if (!leftSchemaTypes.get(this.leftColumnIndex).getClass().equals(rightSchemaTypes.get(
                     this.rightColumnIndex).getClass())) {
             throw new QueryPlanException("Mismatched types of columns " + leftColumnName + " and "
                                          + rightColumnName + ".");
         }
+
+        /*All check done*/
         leftSchemaNames.addAll(rightSchemaNames);
         leftSchemaTypes.addAll(rightSchemaTypes);
         return new Schema(leftSchemaNames, leftSchemaTypes);

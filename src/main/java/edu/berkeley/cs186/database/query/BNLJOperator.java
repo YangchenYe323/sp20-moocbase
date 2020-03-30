@@ -5,6 +5,7 @@ import java.util.*;
 import edu.berkeley.cs186.database.TransactionContext;
 import edu.berkeley.cs186.database.common.iterator.BacktrackingIterator;
 import edu.berkeley.cs186.database.databox.DataBox;
+import edu.berkeley.cs186.database.io.PageException;
 import edu.berkeley.cs186.database.memory.Page;
 import edu.berkeley.cs186.database.table.Record;
 
@@ -57,13 +58,26 @@ class BNLJOperator extends JoinOperator {
         private BacktrackingIterator<Record> leftRecordIterator = null;
         // Iterator over records in the current right page
         private BacktrackingIterator<Record> rightRecordIterator = null;
+        private boolean hasNetRightPage;
         // The current record on the left page
         private Record leftRecord = null;
+        private Record rightRecord = null;
         // The next record to return
         private Record nextRecord = null;
 
+        //leftBlock is an array of pages holding
+        //all the in-memory left page
+        List<Page> leftBlock;
+        Page leftPage;
+        int currentPageIndex;
+        //buffer to stream right pages
+        Page rightPage;
+
         private BNLJIterator() {
             super();
+
+            leftBlock = new ArrayList<>();
+            rightPage = null;
 
             this.leftIterator = BNLJOperator.this.getPageIterator(this.getLeftTableName());
             fetchNextLeftBlock();
@@ -88,7 +102,59 @@ class BNLJOperator extends JoinOperator {
          * and leftRecord should be set to null.
          */
         private void fetchNextLeftBlock() {
-            // TODO(proj3_part1): implement
+
+            for (Page p: leftBlock)
+            {
+                p.unpin();
+            }
+            leftBlock.removeAll(leftBlock);
+            //try filling the leftBlock array with pages fetched from
+            //the disk
+            for (;;){
+                try {
+                    leftBlock.add(leftIterator.next());
+                } catch (NoSuchElementException e) {
+                    break;
+                }
+            }
+            //now we have no pages at all
+            if (leftBlock.isEmpty()){
+                leftIterator = null;
+            } else{
+                leftPage = leftBlock.get(0);
+            }
+        }
+
+        private void fetchNextLeftRecord(){
+            try {
+                leftRecord = Record.fromBytes(leftPage.getBuffer(), BNLJOperator.this.getSchema(this.getLeftTableName()));
+            } catch (PageException e){
+                if (currentPageIndex < leftBlock.size()){
+                    leftPage = leftBlock.get(++currentPageIndex);
+                    leftRecord = Record.fromBytes(leftPage.getBuffer(), BNLJOperator.this.getSchema(this.getLeftTableName()));
+                } else{
+                    fetchNextLeftBlock();
+                    if (leftIterator != null)
+                    {
+                        currentPageIndex = 0;
+                        leftPage = leftBlock.get(currentPageIndex);
+                        leftRecord = Record.fromBytes(leftPage.getBuffer(), BNLJOperator.this.getSchema(this.getLeftTableName()));
+                    } else{
+                        throw new NoSuchElementException();
+                    }
+                }
+            }
+        }
+
+        private void fetchNextRightRecord(){
+            try {
+                rightRecord = Record.fromBytes(rightPage.getBuffer(), BNLJOperator.this.getSchema(this.getRightTableName()));
+            } catch (PageException e)
+            {
+                fetchNextRightPage();
+                if (hasNetRightPage) rightRecord = Record.fromBytes(rightPage.getBuffer(), BNLJOperator.this.getSchema(this.getRightTableName()));
+                else throw new NoSuchElementException();
+            }
         }
 
         /**
@@ -100,7 +166,12 @@ class BNLJOperator extends JoinOperator {
          * should be set to null.
          */
         private void fetchNextRightPage() {
-            // TODO(proj3_part1): implement
+            try {
+                rightPage = rightIterator.next();
+                hasNetRightPage = true;
+            } catch (PageException e){
+                hasNetRightPage = false;
+            }
         }
 
         /**
@@ -110,7 +181,21 @@ class BNLJOperator extends JoinOperator {
          * @throws NoSuchElementException if there are no more Records to yield
          */
         private void fetchNextRecord() {
-            // TODO(proj3_part1): implement
+            try {
+                fetchNextLeftRecord();
+            } catch (NoSuchElementException e){
+                //we are done
+                throw new NoSuchElementException("No new record to fetch");
+            }
+
+            nextRecord = null;
+
+            while (nextRecord == null){
+
+                fetchNextRightRecord();
+
+
+            }
         }
 
         /**

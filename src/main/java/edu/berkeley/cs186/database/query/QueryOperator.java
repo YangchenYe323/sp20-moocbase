@@ -41,6 +41,7 @@ public abstract class QueryOperator implements Iterable<Record> {
         this.destination = null;
     }
 
+    /*BEGIN: Type check method*/
     public OperatorType getType() {
         return this.type;
     }
@@ -68,7 +69,9 @@ public abstract class QueryOperator implements Iterable<Record> {
     public boolean isIndexScan() {
         return this.type.equals(OperatorType.INDEXSCAN);
     }
+    /*END: Type check method*/
 
+    /*BEGIN: Getters and Setters*/
     public QueryOperator getSource() {
         return this.source;
     }
@@ -93,6 +96,7 @@ public abstract class QueryOperator implements Iterable<Record> {
     void setOutputSchema(Schema schema) {
         this.operatorSchema = schema;
     }
+    /*BEGIN: Getters and Setters*/
 
     protected abstract Schema computeSchema();
 
