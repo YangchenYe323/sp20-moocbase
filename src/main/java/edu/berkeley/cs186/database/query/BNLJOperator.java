@@ -65,6 +65,9 @@ class BNLJOperator extends JoinOperator {
         // The next record to return
         private Record nextRecord = null;
 
+        //max block size, numbuffer -2
+        int maxPage;
+
         //leftBlock is an array of pages holding
         //all the in-memory left page
         List<Page> leftBlock;
@@ -76,15 +79,19 @@ class BNLJOperator extends JoinOperator {
         private BNLJIterator() {
             super();
 
+            this.maxPage = BNLJOperator.this.numBuffers - 2;
+
             leftBlock = new ArrayList<>();
             rightPage = null;
 
             this.leftIterator = BNLJOperator.this.getPageIterator(this.getLeftTableName());
             fetchNextLeftBlock();
+            leftRecord = leftRecordIterator.next();
 
             this.rightIterator = BNLJOperator.this.getPageIterator(this.getRightTableName());
             this.rightIterator.markNext();
             fetchNextRightPage();
+            rightRecord = rightRecordIterator.next();
 
             try {
                 this.fetchNextRecord();
@@ -103,59 +110,32 @@ class BNLJOperator extends JoinOperator {
          */
         private void fetchNextLeftBlock() {
 
-            for (Page p: leftBlock)
-            {
-                p.unpin();
-            }
-            leftBlock.removeAll(leftBlock);
-            //try filling the leftBlock array with pages fetched from
-            //the disk
-            for (;;){
-                try {
-                    leftBlock.add(leftIterator.next());
-                } catch (NoSuchElementException e) {
-                    break;
-                }
-            }
-            //now we have no pages at all
-            if (leftBlock.isEmpty()){
+            //bring next maxPage pages to memory, initialize an record iterator over that block
+            leftRecordIterator = BNLJOperator.this.getBlockIterator(this.getLeftTableName(), leftIterator, maxPage);
+            leftRecordIterator.markNext();
+
+            //there are no more pages, clean up
+            if (!leftRecordIterator.hasNext()){
+                leftRecordIterator = null;
                 leftIterator = null;
-            } else{
-                leftPage = leftBlock.get(0);
             }
+
         }
 
-        private void fetchNextLeftRecord(){
-            try {
-                leftRecord = Record.fromBytes(leftPage.getBuffer(), BNLJOperator.this.getSchema(this.getLeftTableName()));
-            } catch (PageException e){
-                if (currentPageIndex < leftBlock.size()){
-                    leftPage = leftBlock.get(++currentPageIndex);
-                    leftRecord = Record.fromBytes(leftPage.getBuffer(), BNLJOperator.this.getSchema(this.getLeftTableName()));
-                } else{
-                    fetchNextLeftBlock();
-                    if (leftIterator != null)
-                    {
-                        currentPageIndex = 0;
-                        leftPage = leftBlock.get(currentPageIndex);
-                        leftRecord = Record.fromBytes(leftPage.getBuffer(), BNLJOperator.this.getSchema(this.getLeftTableName()));
-                    } else{
-                        throw new NoSuchElementException();
-                    }
-                }
-            }
-        }
+        /*private void fetchNextLeftRecordInBlock(){
+            if (leftRecordIterator == null) throw new NoSuchElementException("No more records");
 
-        private void fetchNextRightRecord(){
-            try {
-                rightRecord = Record.fromBytes(rightPage.getBuffer(), BNLJOperator.this.getSchema(this.getRightTableName()));
-            } catch (PageException e)
-            {
-                fetchNextRightPage();
-                if (hasNetRightPage) rightRecord = Record.fromBytes(rightPage.getBuffer(), BNLJOperator.this.getSchema(this.getRightTableName()));
-                else throw new NoSuchElementException();
+            //iterate through the block in memory
+            if (leftRecordIterator.hasNext())
+                leftRecord = leftRecordIterator.next();
+            else{
+                //bring another block
+                fetchNextLeftBlock();
             }
-        }
+
+        }*/
+
+
 
         /**
          * Fetch the next non-empty page from the right relation. rightRecordIterator
@@ -166,12 +146,14 @@ class BNLJOperator extends JoinOperator {
          * should be set to null.
          */
         private void fetchNextRightPage() {
-            try {
-                rightPage = rightIterator.next();
-                hasNetRightPage = true;
-            } catch (PageException e){
-                hasNetRightPage = false;
+            //bring one more page into memory, initialize an iterator over it
+            rightRecordIterator = BNLJOperator.this.getBlockIterator(getRightTableName(), rightIterator, 1);
+
+            //this iteration is over, set it to null
+            if (!rightRecordIterator.hasNext()){
+                rightRecordIterator = null;
             }
+
         }
 
         /**
@@ -181,21 +163,46 @@ class BNLJOperator extends JoinOperator {
          * @throws NoSuchElementException if there are no more Records to yield
          */
         private void fetchNextRecord() {
-            try {
-                fetchNextLeftRecord();
-            } catch (NoSuchElementException e){
-                //we are done
-                throw new NoSuchElementException("No new record to fetch");
-            }
+
 
             nextRecord = null;
-
             while (nextRecord == null){
+                if (leftRecord != null) {
+                    DataBox leftJoinValue = this.leftRecord.getValues().get(BNLJOperator.this.getLeftColumnIndex());
+                    DataBox rightJoinValue = rightRecord.getValues().get(BNLJOperator.this.getRightColumnIndex());
+                    if (leftJoinValue.equals(rightJoinValue))
+                        nextRecord = joinRecords(leftRecord, rightRecord);
 
-                fetchNextRightRecord();
-
-
+                    leftRecord = leftRecordIterator.hasNext() ? leftRecordIterator.next() : null;
+                } else{
+                    //in this case we reset the left record iterator
+                    //and compare the block of left record with the next
+                    //right record in the page
+                    if (rightRecordIterator.hasNext()){
+                        leftRecordIterator.reset();
+                        leftRecord = leftRecordIterator.next();
+                        rightRecord = rightRecordIterator.next();
+                    } else{ //now we bring in another right page
+                        fetchNextRightPage();
+                        //not the last page
+                        if (rightRecordIterator != null){
+                            rightRecord = rightRecordIterator.next();
+                            leftRecordIterator.reset();
+                            leftRecord = leftRecordIterator.next();
+                        }
+                        else{
+                            fetchNextLeftBlock();
+                            //now we are done!
+                            if (leftRecordIterator == null) throw new NoSuchElementException();
+                            leftRecord = leftRecordIterator.next();
+                            rightIterator.reset();
+                            fetchNextRightPage();
+                            rightRecord = rightRecordIterator.next();
+                        }
+                    }
+                }
             }
+
         }
 
         /**
