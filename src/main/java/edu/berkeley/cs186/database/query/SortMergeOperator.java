@@ -71,10 +71,10 @@ class SortMergeOperator extends JoinOperator {
             //construct iterator over the sorted tables
             leftIterator = getTransaction().getRecordIterator(sortedLeftTableName);
             rightIterator = getTransaction().getRecordIterator(sortedRightTableName);
-            rightIterator.markNext();
 
             fetchLeftRecord();
             fetchRightRecord();
+            rightIterator.markPrev();
 
             //if (leftRecord == null) System.out.println("LEFT");
             //if (rightRecord == null) System.out.println("RIGHT");
@@ -97,33 +97,44 @@ class SortMergeOperator extends JoinOperator {
 
             nextRecord = null;
             while (nextRecord == null){
-                if (rightRecord != null){
-                    DataBox leftValue = leftRecord.getValues().get(getLeftColumnIndex());
-                    DataBox rightValue = rightRecord.getValues().get(getRightColumnIndex());
 
-                    if (leftValue.equals(rightValue)){
-                        if (!marked){
-                            marked = true;
-                            rightIterator.markPrev();
-                        }
-
-                        nextRecord = joinRecords(leftRecord, rightRecord);
-
-                        fetchRightRecord();
-                    }
-
-                    if (!leftValue.equals(rightValue) && marked){
-                        marked = false;
-                        rightIterator.reset();
+                if (!marked){
+                    while (compare(leftRecord, rightRecord) < 0){
                         fetchLeftRecord();
+                    }
+                    while (rightRecord != null && compare(leftRecord, rightRecord) > 0){
                         fetchRightRecord();
                     }
+                    if (rightRecord == null){
+                        fetchLeftRecord();
+                        rightIterator.reset();
+                        fetchRightRecord();
+                        continue;
+                    }
+
+                    assert(compare(leftRecord, rightRecord) ==0);
+
+                    marked = true;
+                    rightIterator.markPrev();
+                }
+
+                if (rightRecord != null && compare(leftRecord, rightRecord) == 0){
+                    nextRecord = joinRecords(leftRecord, rightRecord);
+                    fetchRightRecord();
                 } else{
-                    fetchLeftRecord();
+                    marked = false;
                     rightIterator.reset();
                     fetchRightRecord();
+                    fetchLeftRecord();
                 }
+
             }
+        }
+
+        private int compare(Record left, Record right){
+            DataBox leftJoinValue = left.getValues().get(SortMergeOperator.this.getLeftColumnIndex());
+            DataBox rightJoinValue = right.getValues().get(SortMergeOperator.this.getRightColumnIndex());
+            return leftJoinValue.compareTo(rightJoinValue);
         }
 
         /**
