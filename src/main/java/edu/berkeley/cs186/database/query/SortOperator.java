@@ -167,26 +167,41 @@ public class SortOperator {
 
         //place to hold temporary record (that is to be stored in runs)
         Record[] tmp = new Record[numOfRecord];
+        //List<Record> tmpRecordList = new ArrayList<>();
         int count = 0;
         while (iter.hasNext()){
             Record nextR = iter.next();
             tmp[count] = nextR;
+            //tmpRecordList.add(nextR);
             count++;
             if (count == numOfRecord){
                 count = 0;
                 //pass 0
+                //Run run = createRun();
+                //run.addRecords(tmpRecordList);
+                //initialRun.add(sortRun(run));
+                //tmpRecordList = new ArrayList<>();
+
                 initialRun.add(sortRun(createRunFromIterator(new ArrayBacktrackingIterator<>(tmp))));
                 tmp = new Record[numOfRecord];
             }
 
             //this is the last run we have, may not have numOfRecord size
             if (!iter.hasNext()){
+
+                //Run run = createRun();
+                //run.addRecords(tmpRecordList);
+                //initialRun.add(sortRun(run));
+                //tmpRecordList = new ArrayList<>();
+
                 Record[] shortTmp = new Record[count];
                 System.arraycopy(tmp, 0, shortTmp, 0, count);
                 //pass 0
                 initialRun.add(sortRun(createRunFromIterator(new ArrayBacktrackingIterator<>(shortTmp))));
             }
         }
+
+        initialRun = mergePass(initialRun);
 
         //merge until we get only one run left
         while (initialRun.size() != 1){

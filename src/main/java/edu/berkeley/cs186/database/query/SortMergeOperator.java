@@ -53,11 +53,91 @@ class SortMergeOperator extends JoinOperator {
         private Record leftRecord;
         private Record nextRecord;
         private Record rightRecord;
-        private boolean marked;
+        private boolean marked = false;
 
         private SortMergeIterator() {
             super();
-            // TODO(proj3_part1): implement
+
+            //construct sort operators
+            SortOperator leftSort = new SortOperator(SortMergeOperator.this.getTransaction(), getLeftTableName(),
+                    Comparator.comparing(o -> o.getValues().get(SortMergeOperator.this.getLeftColumnIndex())));
+            SortOperator rightSort = new SortOperator(SortMergeOperator.this.getTransaction(), getLeftTableName(),
+                    Comparator.comparing(o -> o.getValues().get(SortMergeOperator.this.getRightColumnIndex())));
+
+            //sort both input tables
+            String sortedLeftTableName = leftSort.sort();
+            String sortedRightTableName = rightSort.sort();
+
+            //construct iterator over the sorted tables
+            leftIterator = getTransaction().getRecordIterator(sortedLeftTableName);
+            rightIterator = getTransaction().getRecordIterator(sortedRightTableName);
+            rightIterator.markNext();
+
+            fetchLeftRecord();
+            fetchRightRecord();
+
+            //if (leftRecord == null) System.out.println("LEFT");
+            //if (rightRecord == null) System.out.println("RIGHT");
+
+            fetchNextRecord();
+
+        }
+
+        private void fetchLeftRecord(){
+            if (leftIterator.hasNext()) leftRecord = leftIterator.next();
+            else throw new NoSuchElementException("No More Record");
+        }
+
+        private void fetchRightRecord(){
+            rightRecord = rightIterator.hasNext() ? rightIterator.next(): null;
+        }
+
+        private void fetchNextRecord(){
+            if (leftRecord == null) throw new NoSuchElementException("No more records");
+
+            nextRecord = null;
+            while (nextRecord == null){
+                if (rightRecord != null){
+                    DataBox leftValue = leftRecord.getValues().get(getLeftColumnIndex());
+                    DataBox rightValue = rightRecord.getValues().get(getRightColumnIndex());
+
+                    if (leftValue.equals(rightValue)){
+                        if (!marked){
+                            marked = true;
+                            rightIterator.markPrev();
+                        }
+
+                        nextRecord = joinRecords(leftRecord, rightRecord);
+
+                        fetchRightRecord();
+                    }
+
+                    if (!leftValue.equals(rightValue) && marked){
+                        marked = false;
+                        rightIterator.reset();
+                        fetchLeftRecord();
+                        fetchRightRecord();
+                    }
+                } else{
+                    fetchLeftRecord();
+                    rightIterator.reset();
+                    fetchRightRecord();
+                }
+            }
+        }
+
+        /**
+         * Helper method to create a joined record from a record of the left relation
+         * and a record of the right relation.
+         * @param leftRecord Record from the left relation
+         * @param rightRecord Record from the right relation
+         * @return joined record
+         */
+        private Record joinRecords(Record leftRecord, Record rightRecord) {
+            List<DataBox> leftValues = new ArrayList<>(leftRecord.getValues());
+            List<DataBox> rightValues = new ArrayList<>(rightRecord.getValues());
+            leftValues.addAll(rightValues);
+            return new Record(leftValues);
         }
 
         /**
@@ -67,9 +147,8 @@ class SortMergeOperator extends JoinOperator {
          */
         @Override
         public boolean hasNext() {
-            // TODO(proj3_part1): implement
 
-            return false;
+            return nextRecord != null;
         }
 
         /**
@@ -80,9 +159,17 @@ class SortMergeOperator extends JoinOperator {
          */
         @Override
         public Record next() {
-            // TODO(proj3_part1): implement
 
-            throw new NoSuchElementException();
+            Record returnRecord = nextRecord;
+
+            try {
+                fetchNextRecord();
+            } catch(NoSuchElementException e){
+                nextRecord = null;
+            }
+
+            return returnRecord;
+
         }
 
         @Override

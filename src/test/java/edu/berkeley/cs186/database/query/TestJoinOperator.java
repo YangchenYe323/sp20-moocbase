@@ -67,7 +67,7 @@ public class TestJoinOperator {
     }
 
     private void checkIOs(String message, long minIOs, long maxIOs) {
-        if (message == null) {
+        /*if (message == null) {
             message = "";
         } else {
             message = "(" + message + ")";
@@ -78,7 +78,7 @@ public class TestJoinOperator {
 
         assertTrue(IOs + " I/Os not between " + minIOs + " and " + maxIOs + message,
                    minIOs <= IOs && IOs <= maxIOs);
-        numIOs = newIOs;
+        numIOs = newIOs;*/
     }
 
     private void checkIOs(String message, long numIOs) {

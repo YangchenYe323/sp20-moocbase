@@ -87,8 +87,7 @@ public class TestSortOperator {
 
         assertTrue(IOs + " I/Os not between " + minIOs + " and " + maxIOs + message,
                    minIOs <= IOs && IOs <= maxIOs);
-        numIOs = newIOs;
-    }
+        numIOs = newIOs;}
 
     private void checkIOs(String message, long numIOs) {
         checkIOs(message, numIOs, numIOs);
