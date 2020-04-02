@@ -226,20 +226,40 @@ public class QueryPlan {
      * @return an iterator of records that is the result of this query
      */
     public Iterator<Record> execute() {
-        // TODO(proj3_part2): implement
+        Map<String, QueryOperator> pass1map = new HashMap<>();
+        Map<Set, QueryOperator> map = new HashMap<>();
 
         // Pass 1: Iterate through all single tables. For each single table, find
         // the lowest cost QueryOperator to access that table. Construct a mapping
         // of each table name to its lowest cost operator.
 
+        Set<String> startSet = new HashSet<>();
+        startSet.add(startTableName);
+        pass1map.put(startTableName, minCostSingleAccess(startTableName));
+        map.put(startSet, minCostSingleAccess(startTableName));
+
+        for (String tablename: joinTableNames){
+            Set<String> tmpSet = new HashSet<>();
+            tmpSet.add(tablename);
+            pass1map.put(tablename, minCostSingleAccess(tablename));
+            map.put(tmpSet, minCostSingleAccess(tablename));
+        }
+
         // Pass i: On each pass, use the results from the previous pass to find the
         // lowest cost joins with each single table. Repeat until all tables have
         // been joined.
+        for (int i = 1; i < 1 + joinTableNames.size(); ++i){
+            map = minCostJoins(map, pass1map);
+        }
+
 
         // Get the lowest cost operator from the last pass, add GROUP BY and SELECT
         // operators, and return an iterator on the final operator
+        finalOperator = minCostOperator(map);
+        addGroupBy();
+        addProjects();
 
-        return this.executeNaive(); // TODO(proj3_part2): Replace this!!! Allows you to test intermediate functionality
+        return finalOperator.execute();
     }
 
     /**
@@ -398,10 +418,9 @@ public class QueryPlan {
      * @return a mapping of table names to a join QueryOperator
      */
     Map<Set, QueryOperator> minCostJoins(Map<Set, QueryOperator> prevMap,
-                                         Map<Set, QueryOperator> pass1Map) {
-        Map<Set, QueryOperator> map = new HashMap<>();
+                                         Map<String, QueryOperator> pass1Map) {
 
-        // TODO(proj3_part2): implement
+        Map<Set, QueryOperator> map = new HashMap<>();
 
         //We provide a basic description of the logic you have to implement
 
@@ -427,7 +446,49 @@ public class QueryPlan {
          * and the previously joined tables.
          */
 
+        for (Set s: prevMap.keySet()){
+
+            QueryOperator operator = prevMap.get(s);
+
+            String leftTable, rightTable;
+            String[] left, right;
+            String leftColumn, rightColumn;
+
+            for (int i = 0; i < joinLeftColumnNames.size(); ++i){
+                left = getJoinLeftColumnNameByIndex(i);
+                right = getJoinRightColumnNameByIndex(i);
+
+                leftTable = left[0];
+                rightTable = right[0];
+
+                leftColumn = left[1];
+                rightColumn = right[1];
+
+                if (s.contains(leftTable) && !s.contains(rightTable)){
+                    QueryOperator rightOperator = pass1Map.get(rightTable);
+                    Set<String> newSet = new HashSet<>(s);
+                    newSet.add(rightTable);
+                    map.put(newSet, minCostJoinType(operator, rightOperator, leftColumn, rightColumn));
+                } else if (s.contains(rightTable) && !s.contains(leftTable)){
+                    QueryOperator leftOperator = pass1Map.get(leftTable);
+                    Set<String> newSet = new HashSet<>(s);
+                    newSet.add(leftTable);
+                    map.put(newSet, minCostJoinType(leftOperator, operator, leftColumn, rightColumn));
+                }
+
+            }
+
+        }
+
         return map;
+    }
+
+    private QueryOperator getOperator(Map<Set, QueryOperator> map, String key){
+        for (Set s: map.keySet()){
+            if (s.contains(key)) return map.get(s);
+        }
+
+        throw new NoSuchElementException();
     }
 
     /**
@@ -446,7 +507,7 @@ public class QueryPlan {
         int newCost;
         for (Set tables : map.keySet()) {
             newOp = map.get(tables);
-            newCost = newOp.getIOCost();
+            newCost = newOp.estimateIOCost();
             if (newCost < minCost) {
                 minOp = newOp;
                 minCost = newCost;

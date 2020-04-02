@@ -197,6 +197,9 @@ public class TestOptimizationJoins {
             query.execute();
 
             QueryOperator finalOperator = query.getFinalOperator();
+
+            System.out.println(finalOperator.toString());
+
             //inner most joins are the largest tables
             assertTrue(finalOperator.toString().contains("\t\ttable: To2"));
             assertTrue(finalOperator.toString().contains("\t\ttable: To3"));
@@ -220,8 +223,15 @@ public class TestOptimizationJoins {
             for (int i = 0; i < 2000; ++i) {
                 Record r = createRecordWithAllTypes(false, i, "!", 0.0f);
                 transaction.insert(TABLENAME + "o3", r.getValues());
+                //transaction.insert(TABLENAME + "o4", r.getValues());
+            }
+
+            for (int i = 0; i < 2000; ++i) {
+                Record r = createRecordWithAllTypes(false, i, "!", 0.0f);
+                //transaction.insert(TABLENAME + "o3", r.getValues());
                 transaction.insert(TABLENAME + "o4", r.getValues());
             }
+
 
             transaction.getTransactionContext().getTable(TABLENAME + "o1").buildStatistics(10);
             transaction.getTransactionContext().getTable(TABLENAME + "o2").buildStatistics(10);
@@ -238,6 +248,8 @@ public class TestOptimizationJoins {
             query.execute();
 
             QueryOperator finalOperator = query.getFinalOperator();
+
+            System.out.println(finalOperator.toString());
 
             //smallest to largest order
             assertTrue(finalOperator.toString().contains("\t\t\ttable: To2"));
