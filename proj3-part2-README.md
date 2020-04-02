@@ -59,9 +59,9 @@ You should first calculate the estimated I/O cost of a sequential scan, since
 this is always possible (it's the default option: we only move away from it in
 favor of index scans if the index scan is both possible and more efficient).
 
-Then, if there are any indices on any column of the table that we have
-a selection predicate on, you should calculate the estimated I/O cost of doing
-an index scan on that column. If any of these are more efficient than the
+**Then, if there are any indices on any column of the table that we have**
+**a selection predicate on, you should calculate the estimated I/O cost of doing**
+**an index scan on that column.** If any of these are more efficient than the
 sequential scan, take the best one.
 
 Finally, as part of a heuristic-based optimization covered in class, you should
