@@ -245,10 +245,11 @@ public class QueryPlan {
             map.put(tmpSet, minCostSingleAccess(tablename));
         }
 
+
         // Pass i: On each pass, use the results from the previous pass to find the
         // lowest cost joins with each single table. Repeat until all tables have
         // been joined.
-        for (int i = 1; i < 1 + joinTableNames.size(); ++i){
+        for (int i = 0; i < joinTableNames.size(); ++i){
             map = minCostJoins(map, pass1map);
         }
 
@@ -352,7 +353,7 @@ public class QueryPlan {
         // minOp = new SequentialScanOperator(this.transaction, table);
 
         minOp = new SequentialScanOperator(transaction, table);
-        int costSeq = minOp.getIOCost();
+        int costSeq = minOp.estimateIOCost();
         int except = -1;
 
         // 1. Find the cost of a sequential scan of the table
@@ -464,31 +465,43 @@ public class QueryPlan {
                 leftColumn = left[1];
                 rightColumn = right[1];
 
+                //Case 1
                 if (s.contains(leftTable) && !s.contains(rightTable)){
                     QueryOperator rightOperator = pass1Map.get(rightTable);
                     Set<String> newSet = new HashSet<>(s);
                     newSet.add(rightTable);
-                    map.put(newSet, minCostJoinType(operator, rightOperator, leftColumn, rightColumn));
+
+                    QueryOperator candidate = minCostJoinType(operator, rightOperator, leftColumn, rightColumn);
+
+
+                    if (!map.containsKey(newSet)){
+                        map.put(newSet, candidate);
+                    } else{
+                        if (candidate.estimateIOCost() < map.get(newSet).estimateIOCost())
+                            map.put(newSet, candidate);
+                    }
+                //Case 2
                 } else if (s.contains(rightTable) && !s.contains(leftTable)){
                     QueryOperator leftOperator = pass1Map.get(leftTable);
                     Set<String> newSet = new HashSet<>(s);
                     newSet.add(leftTable);
-                    map.put(newSet, minCostJoinType(leftOperator, operator, leftColumn, rightColumn));
+
+                    QueryOperator candidate = minCostJoinType(leftOperator, operator, leftColumn, rightColumn);
+
+                    if (!map.containsKey(newSet)){
+                        map.put(newSet, candidate);
+                    } else{
+                        if (candidate.estimateIOCost() < map.get(newSet).estimateIOCost())
+                            map.put(newSet, candidate);
+                    }
                 }
+                //Otherwise do nothing
 
             }
 
         }
 
         return map;
-    }
-
-    private QueryOperator getOperator(Map<Set, QueryOperator> map, String key){
-        for (Set s: map.keySet()){
-            if (s.contains(key)) return map.get(s);
-        }
-
-        throw new NoSuchElementException();
     }
 
     /**
@@ -514,6 +527,8 @@ public class QueryPlan {
             }
         }
         return minOp;
+
+
     }
 
     private String checkIndexEligible() {
