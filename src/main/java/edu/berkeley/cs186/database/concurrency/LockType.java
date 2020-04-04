@@ -15,12 +15,38 @@ public enum LockType {
      * each other. If a transaction can hold lock type A on a resource
      * at the same time another transaction holds lock type B on the same
      * resource, the lock types are compatible.
+     *
+     * Compatibility Matrix:
+     * S -> S, IS, SIX, NL
+     * X -> NL
+     * IS -> S, IS, IX, SIX, NL
+     * IX -> IX, IS, NL
+     * SIX -> IS, NL
+     * NL -> S, X, IS, IX, SIX, NL
      */
     public static boolean compatible(LockType a, LockType b) {
         if (a == null || b == null) {
             throw new NullPointerException("null lock type");
         }
-        // TODO(proj4_part1): implement
+
+        //NL is compatible with all locks
+        if (a == LockType.NL || b == LockType.NL) return true;
+
+        //if none of a and b is NL, X lock is not compatible
+        //with any
+        if (a == LockType.X || b == LockType.X) return false;
+
+        //now none of a or b is either NL or X
+        if (a == LockType.IS || b == LockType.IS) return true;
+
+        //now we're left with: S, IX, SIX
+        if (a == LockType.S){
+            return b == LockType.S;
+        }
+
+        if (a == LockType.IX){
+            return b == LockType.IX;
+        }
 
         return false;
     }
@@ -52,8 +78,18 @@ public enum LockType {
         if (parentLockType == null || childLockType == null) {
             throw new NullPointerException("null lock type");
         }
-        // TODO(proj4_part1): implement
 
+        if (childLockType == LockType.NL) return true;
+
+        if (parentLockType == LockType.IX || parentLockType == LockType.SIX) return true;
+
+        if (parentLockType == LockType.NL) return false;
+
+        if (parentLockType == LockType.IS) return childLockType == LockType.S || childLockType == LockType.IS;
+
+        //if parentLockType is S or X, then they should not have any child lock not NL: Redundant
+
+        System.err.println("Should not reach this line");
         return false;
     }
 
@@ -67,7 +103,15 @@ public enum LockType {
         if (required == null || substitute == null) {
             throw new NullPointerException("null lock type");
         }
-        // TODO(proj4_part1): implement
+
+        if (substitute == required) return true;
+        if (required == LockType.NL) return true;
+        if (substitute == LockType.NL) return false;
+        if (required == LockType.X) return false;
+        if (required == LockType.IX) return substitute == LockType.X || substitute == LockType.SIX;
+        if (required == LockType.SIX) return substitute == LockType.X;
+        if (required == LockType.S) return substitute == LockType.X || substitute == LockType.SIX;
+        if (required == LockType.IS) return true;
 
         return false;
     }

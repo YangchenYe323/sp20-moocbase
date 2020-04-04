@@ -472,8 +472,7 @@ public class QueryPlan {
                     newSet.add(rightTable);
 
                     QueryOperator candidate = minCostJoinType(operator, rightOperator, leftColumn, rightColumn);
-
-
+                    
                     if (!map.containsKey(newSet)){
                         map.put(newSet, candidate);
                     } else{
