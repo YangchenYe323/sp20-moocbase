@@ -98,6 +98,9 @@ public class LockContext {
         //if readonly
         if (readonly) throw new UnsupportedOperationException("Lock Context is read only");
 
+        //if the transaction has already held a lock
+        if (this.getExplicitLockType(transaction) != LockType.NL) throw new DuplicateLockRequestException("Lock Already Held");
+
         //Check Multigranularity constraint:
 
         //Acquiring S on this resource you need IS or IX on all the parent
@@ -155,6 +158,16 @@ public class LockContext {
 
         //Now This request is valid, use the lock manager to acquire the lock
         lockman.acquire(transaction, name, lockType);
+
+        //inform the parent that we have acquired a new lock
+        if (parent != null){
+            int v = parent.numChildLocks.getOrDefault(transaction.getTransNum(), 0);
+            v++;
+            parent.numChildLocks.put(transaction.getTransNum(), v);
+        }
+
+        //TODO: Figure out how to update numChildLocks accordingly
+
     }
 
     /**
@@ -170,9 +183,33 @@ public class LockContext {
      */
     public void release(TransactionContext transaction)
     throws NoLockHeldException, InvalidLockException {
-        // TODO(proj4_part2): implement
 
-        return;
+        //unsupported operation
+        if (readonly) throw new UnsupportedOperationException("Lock Context read only");
+
+        //no lock held
+        if (getExplicitLockType(transaction) == LockType.NL)
+            throw new NoLockHeldException("No Lock Held");
+
+        //multi-granularity constraint:
+        //to release a lock on this level, must have no lock held at lower level
+        if (numChildLocks.containsKey(transaction.getTransNum()) && numChildLocks.get(transaction.getTransNum()) > 0)
+            throw new InvalidLockException("Haven't Released Child Locks");
+
+        //release and update
+        lockman.release(transaction, name);
+
+        //inform the parent that this transaction has released a lock on its child
+        if (parent != null) {
+            Map<Long, Integer> parentMap = parent.numChildLocks;
+            //we assumed that the parentMap contains this transaction number
+            //because when we acquired this lock, we surely have to have informed
+            //the parent
+            int v = parentMap.get(transaction.getTransNum());
+            --v;
+            parentMap.put(transaction.getTransNum(), v);
+        }
+
     }
 
     /**
