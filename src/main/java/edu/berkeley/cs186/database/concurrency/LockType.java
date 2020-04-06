@@ -116,6 +116,10 @@ public enum LockType {
         return false;
     }
 
+    public static boolean isIntentLock(LockType type){
+        return type == LockType.IS || type == LockType.IX;
+    }
+
     @Override
     public String toString() {
         switch (this) {

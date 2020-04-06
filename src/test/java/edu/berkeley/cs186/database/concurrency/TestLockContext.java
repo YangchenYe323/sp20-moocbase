@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.List;
 
 import edu.berkeley.cs186.database.TimeoutScaling;
+import edu.berkeley.cs186.database.Transaction;
 import edu.berkeley.cs186.database.TransactionContext;
 import edu.berkeley.cs186.database.categories.*;
 import edu.berkeley.cs186.database.common.Pair;
@@ -214,6 +215,28 @@ public class TestLockContext {
         dbLockContext.acquire(t1, LockType.S);
         dbLockContext.promote(t1, LockType.X);
         assertTrue(TestLockManager.holds(lockManager, t1, dbLockContext.getResourceName(), LockType.X));
+    }
+
+    @Test
+    @Category(PublicTests.class)
+    public void testComplexPromote(){
+        TransactionContext t1 = transactions[1];
+        dbLockContext.acquire(t1, LockType.IX);
+        tableLockContext.acquire(t1, LockType.IX);
+        pageLockContext.acquire(t1, LockType.S);
+        tableLockContext.promote(t1, LockType.X);
+        assertTrue(TestLockManager.holds(lockManager, t1, tableLockContext.getResourceName(), LockType.X));
+    }
+
+    @Test
+    @Category(PublicTests.class)
+    public void testPromoteSIX(){
+        TransactionContext t1 = transactions[1];
+        dbLockContext.acquire(t1, LockType.IX);
+        tableLockContext.acquire(t1, LockType.S);
+        dbLockContext.promote(t1, LockType.SIX);
+        assertTrue(TestLockManager.holds(lockManager, t1, dbLockContext.getResourceName(), LockType.SIX));
+        assertFalse(TestLockManager.holds(lockManager, t1, tableLockContext.getResourceName(), LockType.S));
     }
 
     @Test
