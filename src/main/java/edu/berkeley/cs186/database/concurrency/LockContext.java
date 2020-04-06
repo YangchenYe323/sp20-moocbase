@@ -94,9 +94,67 @@ public class LockContext {
      */
     public void acquire(TransactionContext transaction, LockType lockType)
     throws InvalidLockException, DuplicateLockRequestException {
-        // TODO(proj4_part2): implement
 
-        return;
+        //if readonly
+        if (readonly) throw new UnsupportedOperationException("Lock Context is read only");
+
+        //Check Multigranularity constraint:
+
+        //Acquiring S on this resource you need IS or IX on all the parent
+        //If: Acquire S, parent hold SIX or S or X -> DuplicatedLockRequest
+        //parent hold NL -> InvalidLock
+
+        //Acquiring X on this resource you need IX or SIX on all the parent
+        //If: Acquire X, parent hold X -> DuplicatedLockRequest
+        //parent hold S, IS, NL -> InvalidLock
+
+        //Acquiring IS: parent IS or IX
+        //parent S or SIX or X -> DuplicatedLock
+        //parent NL -> InvalidLock
+
+        //Acquiring IX: parent IX or SIX
+        //parent X -> Duplicate
+        //parent S or IS or NL -> Invalid
+
+        //Acquirng SIX: parent IX or SIX
+        //parent X -> Duplicate
+        //parent S or IS or NL -> invalid
+
+        //Acquiring NL: Do nothing
+
+        Set<LockType> invalidTypes = new HashSet<>();
+        switch (lockType){
+            case S:
+            case IS:
+                invalidTypes.add(LockType.NL);
+                invalidTypes.add(LockType.S);
+                invalidTypes.add(LockType.X);
+                invalidTypes.add(LockType.SIX);
+                break;
+            case X:
+            case IX:
+            case SIX:
+                invalidTypes.add(LockType.S);
+                invalidTypes.add(LockType.IS);
+                invalidTypes.add(LockType.NL);
+                invalidTypes.add(LockType.X);
+                break;
+            case NL:
+            default:
+                //if the transaction is acquiring NL, just
+                return;
+        }
+
+        //check constraint
+        LockContext lckIter = parent;
+        while (lckIter != null){
+            if (invalidTypes.contains(lckIter.getExplicitLockType(transaction)))
+                throw new InvalidLockException("Lock Request Invalid");
+            lckIter = lckIter.parentContext();
+        }
+
+        //Now This request is valid, use the lock manager to acquire the lock
+        lockman.acquire(transaction, name, lockType);
     }
 
     /**
@@ -209,7 +267,13 @@ public class LockContext {
         if (transaction == null) {
             return LockType.NL;
         }
-        // TODO(proj4_part2): implement
+
+        List<Lock> locks = lockman.getLocks(transaction);
+
+        for (Lock l: locks){
+            if (l.name == this.name) return l.lockType;
+        }
+
         return LockType.NL;
     }
 
