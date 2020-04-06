@@ -163,6 +163,7 @@ public class LockManager {
         /**
          * Gets the Lock transaction has on this resource
          * if the transaction does not have a lock, return null
+         * NOTE: This method find the oldest lock the transaction has had on this resource
          * @param transaction
          * @return
          */
