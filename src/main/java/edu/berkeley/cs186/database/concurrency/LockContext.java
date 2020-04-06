@@ -166,8 +166,6 @@ public class LockContext {
             parent.numChildLocks.put(transaction.getTransNum(), v);
         }
 
-        //TODO: Figure out how to update numChildLocks accordingly
-
     }
 
     /**
