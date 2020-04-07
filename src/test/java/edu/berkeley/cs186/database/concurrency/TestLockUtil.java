@@ -16,6 +16,8 @@ import org.junit.rules.Timeout;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
+import java.util.ArrayList;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -84,11 +86,12 @@ public class TestLockUtil {
     @Category(PublicTests.class)
     public void testIStoS() {
         LockUtil.ensureSufficientLockHeld(pageContexts[4], LockType.S);
+        LockUtil.ensureSufficientLockHeld(pageContexts[3], LockType.S);
         pageContexts[4].release(transaction);
         lockManager.startLog();
         LockUtil.ensureSufficientLockHeld(tableContext, LockType.S);
         assertEquals(Collections.singletonList(
-                         "acquire-and-release 0 database/table1 S [database/table1]"
+                         "acquire-and-release 0 database/table1 S [database/table1, database/table1/3]"
                      ), lockManager.log);
     }
 
@@ -144,6 +147,19 @@ public class TestLockUtil {
         lockManager.startLog();
         LockUtil.ensureSufficientLockHeld(tableContext, LockType.NL);
         assertEquals(Collections.emptyList(), lockManager.log);
+    }
+
+    @Test
+    @Category(PublicTests.class)
+    public void testGetSIX(){
+        LockUtil.ensureSufficientLockHeld(tableContext, LockType.S);
+        lockManager.startLog();
+        LockUtil.ensureSufficientLockHeld(pageContexts[1], LockType.X);
+        List<String> reference = new ArrayList<>();
+        reference.add("promote 0 database IX");
+        reference.add("acquire-and-release 0 database/table1 SIX [database/table1]");
+        reference.add("acquire 0 database/table1/1 X");
+        assertEquals(reference, lockManager.log);
     }
 
 }

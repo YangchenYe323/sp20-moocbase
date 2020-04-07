@@ -278,6 +278,7 @@ public class LockContext {
             lockman.acquireAndRelease(transaction, name, newLockType, list);
 
             //now we're going to update numChild
+            list.remove(name);
             for (ResourceName rname: list){
                 //if this resource has a parent
                 if (rname.parent() != null) {

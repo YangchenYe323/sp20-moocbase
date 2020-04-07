@@ -1,5 +1,6 @@
 package edu.berkeley.cs186.database.concurrency;
 // If you see this line, you have successfully pulled the latest changes from the skeleton for proj4!
+import edu.berkeley.cs186.database.Transaction;
 import edu.berkeley.cs186.database.TransactionContext;
 
 /**
@@ -19,12 +20,75 @@ public class LockUtil {
      * If the current transaction is null (i.e. there is no current transaction), this method should do nothing.
      */
     public static void ensureSufficientLockHeld(LockContext lockContext, LockType lockType) {
-        // TODO(proj4_part2): implement
 
         TransactionContext transaction = TransactionContext.getTransaction(); // current transaction
 
-        return;
+        if (transaction == null) return;
+
+        //if we've already has the required lock
+        if (LockType.substitutable(lockContext.getEffectiveLockType(transaction), lockType)) return;
+
+        //Two phases implementation:
+        //1. get ancestor locks
+        LockType IntentLocks;
+        if (lockType == LockType.S) IntentLocks = LockType.IS;
+        else IntentLocks = LockType.IX;
+
+        recGetParentIntentLocks(lockContext.parentContext(), transaction, IntentLocks);
+
+        //2. acquire this lock
+        LockType oldLockType = lockContext.getExplicitLockType(transaction);
+        if (oldLockType == LockType.NL)
+            lockContext.acquire(transaction, lockType);
+        else {
+            if (oldLockType == LockType.IX && lockType == LockType.S){
+                lockType = LockType.SIX;
+                lockContext.promote(transaction, lockType);
+            } else if (lockContext.saturation(transaction) > 0)
+                lockContext.escalate(transaction);
+            else
+                lockContext.promote(transaction, lockType);
+        }
+
+
     }
+
+    /**
+     * this function handles getting the right intent lock from all the parent (IS or IX)
+     * @param context
+     * @param transaction
+     * @param lockType
+     */
+    private static void recGetParentIntentLocks(LockContext context, TransactionContext transaction, LockType lockType){
+
+        //this is the base case
+        if (context == null) return;
+
+        //if we already has an at least equally permissive intent lock, no need to proceed
+        if (LockType.substitutable(context.getExplicitLockType(transaction), lockType)) return;
+
+        //recursively asks the parent for the intent lock
+        recGetParentIntentLocks(context.parentContext(), transaction, lockType);
+
+        //acquire the intent lock at the current level
+        LockType oldLockType = context.getExplicitLockType(transaction);
+        //no lock already held, acquire one
+        if (oldLockType == LockType.NL)
+            context.acquire(transaction, lockType);
+        //held a less permissive lock: promote
+        else{
+            //special case: already held an S lock and want to get an IX
+            //need to get an SIX instead
+            if (oldLockType == LockType.S && lockType == LockType.IX){
+                lockType = LockType.SIX;
+            }
+            context.promote(transaction, lockType);
+        }
+
+    }
+
+
+
 
     // TODO(proj4_part2): add helper methods as you see fit
 }
