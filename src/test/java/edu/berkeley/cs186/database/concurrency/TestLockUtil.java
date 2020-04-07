@@ -162,5 +162,18 @@ public class TestLockUtil {
         assertEquals(reference, lockManager.log);
     }
 
+    @Test
+    @Category(PublicTests.class)
+    public void testEscalateAndPromote(){
+        LockUtil.ensureSufficientLockHeld(pageContexts[1], LockType.S);
+        lockManager.startLog();
+        LockUtil.ensureSufficientLockHeld(tableContext, LockType.X);
+        List<String> reference = new ArrayList<>();
+        reference.add("promote 0 database IX");
+        reference.add("acquire-and-release 0 database/table1 S [database/table1, database/table1/1]");
+        reference.add("promote 0 database/table1 X");
+        assertEquals(reference, lockManager.log);
+    }
+
 }
 

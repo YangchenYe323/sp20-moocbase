@@ -30,6 +30,7 @@ public class LockUtil {
 
         //Two phases implementation:
         //1. get ancestor locks
+        //determine what kind of intent lock to get
         LockType IntentLocks;
         if (lockType == LockType.S) IntentLocks = LockType.IS;
         else IntentLocks = LockType.IX;
@@ -38,16 +39,28 @@ public class LockUtil {
 
         //2. acquire this lock
         LockType oldLockType = lockContext.getExplicitLockType(transaction);
+        //no lock already held
         if (oldLockType == LockType.NL)
             lockContext.acquire(transaction, lockType);
+        //less permissive lock held, prepare to promote
         else {
+            //special case: already held IX and want S: get an SIX
             if (oldLockType == LockType.IX && lockType == LockType.S){
                 lockType = LockType.SIX;
                 lockContext.promote(transaction, lockType);
-            } else if (lockContext.saturation(transaction) > 0)
-                lockContext.escalate(transaction);
-            else
-                lockContext.promote(transaction, lockType);
+            } else { //normal case: promoting
+
+                //if saturated, first escalate
+                if (lockContext.saturation(transaction) > 0)
+                    lockContext.escalate(transaction);
+
+                //then try to promote
+                try {
+                    lockContext.promote(transaction, lockType);
+                } catch (DuplicateLockRequestException e) {
+                    //pass
+                }
+            }
         }
 
 
