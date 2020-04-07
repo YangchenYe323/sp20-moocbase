@@ -1055,6 +1055,7 @@ public class Database implements AutoCloseable {
         @Override
         public void close() {
             // TODO(proj4_part3): release locks held by the transaction
+
             return;
         }
 

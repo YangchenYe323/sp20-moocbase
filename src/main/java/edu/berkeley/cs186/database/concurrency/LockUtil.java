@@ -58,7 +58,7 @@ public class LockUtil {
                 try {
                     lockContext.promote(transaction, lockType);
                 } catch (DuplicateLockRequestException e) {
-                    //pass
+                    //escalation did the job, good, let it pass
                 }
             }
         }
@@ -100,8 +100,4 @@ public class LockUtil {
 
     }
 
-
-
-
-    // TODO(proj4_part2): add helper methods as you see fit
 }

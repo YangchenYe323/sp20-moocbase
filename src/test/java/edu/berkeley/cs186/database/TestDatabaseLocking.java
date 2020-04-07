@@ -67,7 +67,7 @@ public class TestDatabaseLocking {
 
     @BeforeClass
     public static void beforeAll() {
-        passedPreCheck = TestDatabaseDeadlockPrecheck.performCheck(checkFolder);
+        passedPreCheck = false;//TestDatabaseDeadlockPrecheck.performCheck(checkFolder);
     }
 
     @Before

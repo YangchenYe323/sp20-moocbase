@@ -290,11 +290,15 @@ public class LockManager {
         // move the synchronized block elsewhere if you wish.
         boolean shouldBlock = false;
         synchronized (this) {
+            System.out.println("Acquire" + transaction.getTransNum());
             getTransactionLocks(transaction.getTransNum());
             ResourceEntry entry = getResourceEntry(name);
             if (entry.checkCompatible(lockType, transaction.getTransNum()) && entry.checkQueueEmpty()){
+                System.out.println("Acquire2" + transaction.getTransNum());
                 entry.grantOrUpdateLock(new Lock(name, lockType, transaction.getTransNum()));
+                System.out.println("Acquire3" + transaction.getTransNum());
             } else{
+                System.out.println("Acquire4" + transaction.getTransNum());
                 //make an request
                 //extract a list of locks to release
                 List<Lock> releasedLock = Collections.emptyList();
@@ -304,7 +308,7 @@ public class LockManager {
                 shouldBlock = true;
             }
         }
-
+        System.out.println("acquire5" + transaction.getTransNum());
         if (shouldBlock) transaction.block();
     }
 
