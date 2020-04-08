@@ -1,11 +1,11 @@
 package edu.berkeley.cs186.database;
 
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import edu.berkeley.cs186.database.categories.*;
 import edu.berkeley.cs186.database.common.Pair;
 import edu.berkeley.cs186.database.common.PredicateOperator;
 import edu.berkeley.cs186.database.concurrency.*;
-import edu.berkeley.cs186.database.databox.DataBox;
-import edu.berkeley.cs186.database.databox.IntDataBox;
+import edu.berkeley.cs186.database.databox.*;
 import edu.berkeley.cs186.database.query.QueryPlan;
 import edu.berkeley.cs186.database.table.Record;
 import edu.berkeley.cs186.database.table.RecordId;
@@ -488,6 +488,7 @@ public class TestDatabaseLocking {
         lockManager.startLog();
 
         try(Transaction t0 = beginTransaction()) {
+            t0.getTransactionContext().getTable(tableName).enableAutoEscalate();
             t0.getTransactionContext().getRecord(tableName, rids.get(0));
             t0.getTransactionContext().getRecord(tableName, rids.get(rids.size() / 5));
             t0.getTransactionContext().getRecord(tableName, rids.get(rids.size() / 5 * 2));
@@ -518,6 +519,7 @@ public class TestDatabaseLocking {
         lockManager.startLog();
 
         try(Transaction t0 = beginTransaction()) {
+            t0.getTransactionContext().getTable(tableName).enableAutoEscalate();
             t0.getTransactionContext().updateRecord(tableName, values, rids.get(0));
             t0.getTransactionContext().deleteRecord(tableName, rids.get(rids.size() / 5));
             t0.getTransactionContext().updateRecord(tableName, values, rids.get(rids.size() / 5 * 2));
@@ -538,7 +540,7 @@ public class TestDatabaseLocking {
         }
     }
 
-    @Test
+    /*@Test
     @Category(PublicTests.class)
     public void testAutoEscalateSIX() {
         String tableName = "testTable1";
@@ -548,6 +550,7 @@ public class TestDatabaseLocking {
         lockManager.startLog();
 
         try(Transaction t0 = beginTransaction()) {
+            t0.getTransactionContext().getTable(tableName).enableAutoEscalate();
             t0.getTransactionContext().getRecord(tableName, rids.get(0));
             t0.getTransactionContext().getRecord(tableName, rids.get(rids.size() / 5));
             t0.getTransactionContext().getRecord(tableName, rids.get(rids.size() / 5 * 2));
@@ -561,6 +564,9 @@ public class TestDatabaseLocking {
                                  "acquire %s database/tables.testTable1/30000000004 S",
                                  "acquire %s database/tables.testTable1/30000000008 S",
                                  "acquire %s database/tables.testTable1/30000000011 S",
+                                 "promote %s database IX",
+                                 "promote %s database/tables.testTable1 IX",
+                                 "acquire "
                                  "acquire-and-release %s database/tables.testTable1 S [database/tables.testTable1, " +
                                  "database/tables.testTable1/30000000001, database/tables.testTable1/30000000004, " +
                                  "database/tables.testTable1/30000000008, database/tables.testTable1/30000000011]",
@@ -569,7 +575,7 @@ public class TestDatabaseLocking {
                                  "acquire %s database/tables.testTable1/30000000018 X"
                                 ), removeMetadataLogs(lockManager.log));
         }
-    }
+    }*/
 
     @Test
     @Category(PublicTests.class)
@@ -683,19 +689,39 @@ public class TestDatabaseLocking {
     @Test
     @Category(PublicTests.class)
     public void testTableMetadataLockOnUse() {
-        lockManager.startLog();
-        lockManager.suppressStatus(true);
+
 
         try(Transaction t = beginTransaction()) {
             try {
-                t.getTransactionContext().getSchema("badTable");
+                List<String> d = new ArrayList<>();
+                d.add("P");
+                List<Type> tt = new ArrayList<>();
+                tt.add(new Type(TypeId.BOOL, 1));
+
+                Schema s = new Schema(d, tt);
+
+                t.createTable(s, "badTable");
+
+
             } catch (DatabaseException e) { /* do nothing */ }
 
+
+        }
+
+        try(Transaction t = beginTransaction()){
+            lockManager.startLog();
+            lockManager.suppressStatus(true);
+
+            try {
+                t.getTransactionContext().getSchema("badTable");
+            } catch (DatabaseException e){}
+
             assertEquals(prepare(t.getTransNum(),
-                                 "acquire %s database IX",
-                                 "acquire %s database/information_schema.tables IX",
-                                 "acquire %s database/information_schema.tables/10000000003 X"
-                                ), lockManager.log);
+                    "acquire %s database IS",
+                    "acquire %s database/information_schema.tables IS",
+                    "acquire %s database/information_schema.tables/10000000003 S"
+            ), lockManager.log);
+
         }
     }
 

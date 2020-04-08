@@ -252,7 +252,6 @@ public class LockManager {
                     release(transaction, n);
                 }
             } else{
-
                 //in this case we should block
                 shouldBlock = true;
                 //make an request

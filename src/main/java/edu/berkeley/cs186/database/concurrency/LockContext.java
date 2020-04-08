@@ -41,6 +41,8 @@ public class LockContext {
     // Whether or not any new child LockContexts should be marked readonly.
     protected boolean childLocksDisabled;
 
+    protected boolean autoEscalate = false;
+
     public LockContext(LockManager lockman, LockContext parent, Pair<String, Long> name) {
         this(lockman, parent, name, false);
     }
@@ -174,8 +176,14 @@ public class LockContext {
         if (!checkValidLockType(transaction, lockType))
             throw new InvalidLockException("Violates Multi-granularity constraint");
 
-        //Now This request is valid, use the lock manager to acquire the lock
-        lockman.acquire(transaction, name, lockType);
+        //process auto-escalation if needed
+        if (parent != null && parent.autoEscalate && parent.escalateConditionMetL(transaction.getTransNum())) {
+            parent.escalate(transaction);
+            if (!LockType.substitutable(parent.getExplicitLockType(transaction), lockType))
+                lockman.acquire(transaction, name, lockType);
+        } else{
+            lockman.acquire(transaction, name, lockType);
+        }
 
         //Now lock acquisition has succeeded
         //inform the parent that the transaction have acquired a new lock on this child context
@@ -268,6 +276,11 @@ public class LockContext {
         if (newLockType == LockType.SIX && hasSIXAncestor(transaction))
             throw new InvalidLockException("Promote to SIX redundant");
 
+        //process auto-escalation if needed
+        if (parent != null && parent.autoEscalate && parent.escalateConditionMetL(transaction.getTransNum())) {
+            parent.escalate(transaction);
+        }
+
         //Now Valid Request, Begin Processing
         //special case: promote to SIX
         if (newLockType == LockType.SIX){
@@ -357,6 +370,7 @@ public class LockContext {
             case SIX:
             case X:
                 newLockType = LockType.X;
+                break;
         }
         list.add(this.name);
 
@@ -532,6 +546,19 @@ public class LockContext {
     @Override
     public String toString() {
         return "LockContext(" + name.toString() + ")";
+    }
+
+    public void enableAutoEscalate(){
+        autoEscalate = true;
+    }
+
+    public void disableAutoEscalate(){
+        autoEscalate = false;
+    }
+
+    protected boolean escalateConditionMetL(Long transaction){
+        if (!numChildLocks.containsKey(transaction)) return false;
+        return this.capacity() > 0 && ((double)numChildLocks.get(transaction)/this.capacity()) >= 0.2;
     }
 }
 

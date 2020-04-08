@@ -118,7 +118,6 @@ public class Table implements BacktrackingIterable<Record> {
      * new table will be created if none exists on the heapfile.
      */
     public Table(String name, Schema schema, HeapFile heapFile, LockContext lockContext) {
-        // TODO(proj4_part3): table locking code
 
         this.name = name;
         this.heapFile = heapFile;
@@ -148,6 +147,8 @@ public class Table implements BacktrackingIterable<Record> {
         }
 
         this.lockContext = lockContext;
+
+
     }
 
     // Accessors /////////////////////////////////////////////////////////////////
@@ -443,7 +444,7 @@ public class Table implements BacktrackingIterable<Record> {
      * has at least 10 pages should escalate to a table-level lock before any locks are requested.
      */
     public void enableAutoEscalate() {
-        // TODO(proj4_part3): implement
+        lockContext.enableAutoEscalate();
     }
 
     /**
@@ -451,7 +452,7 @@ public class Table implements BacktrackingIterable<Record> {
      * an automatic escalation to a table-level lock.
      */
     public void disableAutoEscalate() {
-        // TODO(proj4_part3): implement
+        lockContext.disableAutoEscalate();
     }
 
     // Iterators /////////////////////////////////////////////////////////////////

@@ -51,15 +51,12 @@ public class TestDatabaseDeadlockPrecheck {
                 File testDir = checkFolder.newFolder(TestDir);
                 String filename = testDir.getAbsolutePath();
                 LoggingLockManager lockManager = new LoggingLockManager();
-                lockManager.startLog();
                 Database database = new Database(filename, 128, lockManager);
                 database.setWorkMem(32);
                 database.waitSetupFinished();
-                System.out.println(lockManager.log);
                 try(Transaction transaction = database.beginTransaction()) {
                     lockManager.acquire(transaction.getTransactionContext(), name, lockType);
                 }
-                System.out.println(lockManager.log);
                 try(Transaction transaction = database.beginTransaction()) {
                     lockManager.acquire(transaction.getTransactionContext(), name, lockType);
                 }
