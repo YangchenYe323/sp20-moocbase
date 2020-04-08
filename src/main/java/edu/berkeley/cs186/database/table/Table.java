@@ -312,7 +312,8 @@ public class Table implements BacktrackingIterable<Record> {
      * not correspond to an existing record in the table.
      */
     public synchronized Record updateRecord(List<DataBox> values, RecordId rid) {
-        // TODO(proj4_part3): modify for smarter locking
+        //smarter locking: we're going to change this page, acquire an X lock
+        LockUtil.ensureSufficientLockHeld(this.lockContext.childContext(rid.getPageNum()), LockType.X);
 
         validateRecordId(rid);
 
@@ -320,6 +321,7 @@ public class Table implements BacktrackingIterable<Record> {
         Record oldRecord = getRecord(rid);
 
         Page page = fetchPage(rid.getPageNum());
+
         try {
             insertRecord(page, rid.getEntryNum(), newRecord);
 
@@ -337,11 +339,15 @@ public class Table implements BacktrackingIterable<Record> {
      * if rid does not correspond to an existing record in the table.
      */
     public synchronized Record deleteRecord(RecordId rid) {
-        // TODO(proj4_part3): modify for smarter locking
+
+        //smarter locking: we're going to change this page, acquire an X lock
+        LockUtil.ensureSufficientLockHeld(this.lockContext.childContext(rid.getPageNum()), LockType.X);
 
         validateRecordId(rid);
 
         Page page = fetchPage(rid.getPageNum());
+
+
         try {
             Record record = getRecord(rid);
 

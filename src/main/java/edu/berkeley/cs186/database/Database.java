@@ -133,6 +133,11 @@ public class Database implements AutoCloseable {
      */
     public Database(String fileDir, int numMemoryPages, LockManager lockManager,
                     EvictionPolicy policy, boolean useRecoveryManager) {
+
+        //initialized if: the fileDr we got is valid and is not empty,
+        //which means we're initializing a database based on existing files
+        //so we could load the in memory objects form the files
+        //otherwise we're creating a new database
         boolean initialized = setupDirectory(fileDir);
 
         numTransactions = 0;
@@ -179,6 +184,7 @@ public class Database implements AutoCloseable {
             diskSpaceManager.allocPart(2);
         }
 
+        //TODO: Why unset here? What exacly does unset do?
         TransactionContext.unsetTransaction();
         LockContext dbContext = lockManager.databaseContext();
         LockContext tableInfoContext = getTableInfoContext();
@@ -499,7 +505,7 @@ public class Database implements AutoCloseable {
     public int getWorkMem() {
         // cap work memory at number of memory pages -- this is likely to cause out of memory
         // errors if actually set this high
-        return this.workMem > this.numMemoryPages ? this.numMemoryPages : this.workMem;
+        return Math.min(this.workMem, this.numMemoryPages);
     }
 
     public void setWorkMem(int workMem) {
@@ -1055,7 +1061,7 @@ public class Database implements AutoCloseable {
         @Override
         public void close() {
             for (String tablename: tableLookup.keySet()){
-                BacktrackingIterator<Page> piter = getTable(tablename).pageIterator();
+                BacktrackingIterator<Page> piter = getPageIterator(tablename);
                 while (piter.hasNext()){
                     Page p = piter.next();
                     try {
