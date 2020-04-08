@@ -854,7 +854,10 @@ public class Database implements AutoCloseable {
 
         @Override
         public Iterator<Record> sortedScan(String tableName, String columnName) {
-            // TODO(proj4_part3): scan locking
+            //we're going to scan the entire table, so it is very
+            //inefficeint to acquire lock for every page
+            //we acquire a table S lock
+            LockUtil.ensureSufficientLockHeld(getTableContext(tableName), LockType.S);
 
             Table tab = getTable(tableName);
             try {
@@ -873,7 +876,10 @@ public class Database implements AutoCloseable {
 
         @Override
         public Iterator<Record> sortedScanFrom(String tableName, String columnName, DataBox startValue) {
-            // TODO(proj4_part3): scan locking
+            //we're going to scan the entire table, so it is very
+            //inefficeint to acquire lock for every page
+            //we acquire a table S lock
+            LockUtil.ensureSufficientLockHeld(getTableContext(tableName), LockType.S);
 
             Table tab = getTable(tableName);
             Pair<String, BPlusTree> index = resolveIndexFromName(tableName, columnName);
@@ -1060,7 +1066,7 @@ public class Database implements AutoCloseable {
 
         @Override
         public void close() {
-            for (String tablename: tableLookup.keySet()){
+            /*for (String tablename: tableLookup.keySet()){
                 BacktrackingIterator<Page> piter = getPageIterator(tablename);
                 while (piter.hasNext()){
                     Page p = piter.next();
@@ -1133,7 +1139,8 @@ public class Database implements AutoCloseable {
             try{
                 lockManager.databaseContext().release(this);
             } catch (NoLockHeldException e){
-            }
+            }*/
+            LockUtil.releaseAllLocks(lockManager.databaseContext(),this);
         }
 
         @Override

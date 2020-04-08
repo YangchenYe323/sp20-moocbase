@@ -25,6 +25,8 @@ public class LockUtil {
 
         if (transaction == null) return;
 
+        if (lockContext.readonly) return;
+
         //if we've already has the required lock
         if (LockType.substitutable(lockContext.getEffectiveLockType(transaction), lockType)) return;
 
@@ -63,7 +65,6 @@ public class LockUtil {
             }
         }
 
-
     }
 
     /**
@@ -96,6 +97,24 @@ public class LockUtil {
                 lockType = LockType.SIX;
             }
             context.promote(transaction, lockType);
+        }
+
+    }
+
+    public static void releaseAllLocks(LockContext lockContext, TransactionContext transaction){
+
+        if (transaction == null) return;
+
+        if (lockContext.numChildLocks.containsKey(transaction.getTransNum()) &&
+                lockContext.numChildLocks.get(transaction.getTransNum()) > 0){
+            for (LockContext context : lockContext.children.values()){
+                releaseAllLocks(context, transaction);
+            }
+        }
+
+        try{
+            lockContext.release(transaction);
+        } catch (NoLockHeldException e){
         }
 
     }
