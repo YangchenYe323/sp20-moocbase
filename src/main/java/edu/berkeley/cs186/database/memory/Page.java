@@ -11,7 +11,7 @@ import edu.berkeley.cs186.database.io.PageException;
  */
 public class Page {
     // lock context for this page
-    private LockContext lockContext;
+    public LockContext lockContext;
 
     // buffer manager frame for this page's data (potentially invalidated)
     private BufferFrame frame;
@@ -204,7 +204,10 @@ public class Page {
          */
         @Override
         public Buffer get(byte[] dst, int offset, int length) {
-            // TODO(proj4_part3): locking code here
+
+            //reading this page, acquire an S lock
+            LockUtil.ensureSufficientLockHeld(lockContext, LockType.S);
+
             Page.this.readBytes(this.offset + offset, length, dst);
             return this;
         }
@@ -219,7 +222,10 @@ public class Page {
          */
         @Override
         public Buffer put(byte[] src, int offset, int length) {
-            // TODO(proj4_part3): locking code here
+
+            //writing to the page, need an X lock
+            LockUtil.ensureSufficientLockHeld(lockContext, LockType.X);
+
             Page.this.writeBytes(this.offset + offset, length, src);
             return this;
         }

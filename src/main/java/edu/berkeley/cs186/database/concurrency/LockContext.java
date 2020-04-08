@@ -285,7 +285,8 @@ public class LockContext {
 
                     LockContext parentContext = childContext(rname.parent().getCurrentName().getSecond());
                     //if this resource is a direct child of us
-                    if (rname.parent().getCurrentName().getSecond().equals(name.getCurrentName().getSecond()))
+                    //if (rname.parent().getCurrentName().getSecond().equals(name.getCurrentName().getSecond()))
+                    if (rname.parent().equals(this.name))
                         parentContext = this;
 
                     int v = parentContext.numChildLocks.get(transaction.getTransNum());
@@ -367,7 +368,8 @@ public class LockContext {
         for (ResourceName rname: list){
             if (rname.parent() != null){
                 LockContext parentContext;
-                if (rname.parent().getCurrentName().getSecond().equals(this.name.getCurrentName().getSecond())) parentContext = this;
+                //if (rname.parent().getCurrentName().getSecond().equals(this.name.getCurrentName().getSecond()))
+                if (rname.parent().equals(this.name)) parentContext = this;
                 else parentContext = childContext(rname.parent().getCurrentName().getSecond());
 
                 int v = parentContext.numChildLocks.get(transaction.getTransNum());
@@ -455,7 +457,7 @@ public class LockContext {
         List<Lock> locks = lockman.getLocks(transaction);
 
         for (Lock l: locks){
-            if (l.name == this.name) return l.lockType;
+            if (l.name.equals(this.name)) return l.lockType;
         }
 
         return LockType.NL;

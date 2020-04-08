@@ -46,7 +46,7 @@ public class TestDatabaseDeadlockPrecheck {
         final ResourceName name = new ResourceName(new Pair<>("database", 0L));
         final LockType lockType = LockType.X;
 
-        //Thread mainRunner = new Thread(() -> {
+        Thread mainRunner = new Thread(() -> {
             try {
                 File testDir = checkFolder.newFolder(TestDir);
                 String filename = testDir.getAbsolutePath();
@@ -55,21 +55,18 @@ public class TestDatabaseDeadlockPrecheck {
                 database.setWorkMem(32);
                 database.waitSetupFinished();
                 try(Transaction transaction = database.beginTransaction()) {
-                    System.out.println(transaction.getTransactionContext().getTransNum());
                     lockManager.acquire(transaction.getTransactionContext(), name, lockType);
                 }
-                /*try(Transaction transaction = database.beginTransaction()) {
+                try(Transaction transaction = database.beginTransaction()) {
                     lockManager.acquire(transaction.getTransactionContext(), name, lockType);
-                }*/
+                }
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
             }
-        ///});
+        });
 
-        //mainRunner.start();
-        /*try {
+        mainRunner.start();
+        try {
             if ((new DisableOnDebug(new TestName()).isDebugging())) {
                 mainRunner.join();
             } else {
@@ -79,7 +76,6 @@ public class TestDatabaseDeadlockPrecheck {
             throw new RuntimeException(e);
         }
 
-        return mainRunner.getState() == Thread.State.TERMINATED;*/
-        return false;
+        return mainRunner.getState() == Thread.State.TERMINATED;
     }
 }

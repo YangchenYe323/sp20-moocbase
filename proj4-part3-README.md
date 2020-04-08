@@ -49,7 +49,7 @@ In the `database` package we have the `Database` class.
   All queries and changes in our database are done
   through transactions (and this is where much of the integration work will take place).
 
-  In the constructor of `Database`, transactions with transaction number 0 and 1 are created and given X locks on every table
+  **In the constructor of `Database`, transactions with transaction number 0 and 1 are created and given X locks on every table**
   before the tables and indices are loaded. This transaction ends when all tables and indices are loaded, and therefore
   starts/finishes at the start of _every_ test in this section. If you see conflicts in this section with an IX(database)
   lock or with X locks on every table, you are likely not properly releasing locks at the end of a transaction.

@@ -26,6 +26,8 @@ import java.util.function.UnaryOperator;
  * of a Transaction call.
  */
 public interface TransactionContext extends AutoCloseable {
+    //Map From Thread id to A list of transactions having been run on this thread
+    //Current Transaction is in the end of the list
     Map<Long, List<TransactionContext>> threadTransactions = new ConcurrentHashMap<>();
 
     /**

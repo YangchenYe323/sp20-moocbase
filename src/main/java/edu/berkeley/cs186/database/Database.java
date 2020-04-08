@@ -1054,9 +1054,80 @@ public class Database implements AutoCloseable {
 
         @Override
         public void close() {
-            // TODO(proj4_part3): release locks held by the transaction
+            for (String tablename: tableLookup.keySet()){
+                BacktrackingIterator<Page> piter = getTable(tablename).pageIterator();
+                while (piter.hasNext()){
+                    Page p = piter.next();
+                    try {
+                        p.lockContext.release(this);
+                    } catch (NoLockHeldException e){}
+                    p.unpin();
+                }
+                try{
+                    LockContext tcontext = getTableContext(tablename);
+                    tcontext.release(this);
+                } catch (NoLockHeldException e){
+                    //pass
+                }
+            }
 
-            return;
+            for (String s: indexLookup.keySet()){
+                BacktrackingIterator<Page> piter = getPageIterator(s);
+                while (piter.hasNext()){
+                    Page p = piter.next();
+                    try {
+                        p.lockContext.release(this);
+                    } catch (NoLockHeldException e){}
+                    p.unpin();
+                }
+                try{
+                    LockContext tcontext = getIndexContext(s);
+                    tcontext.release(this);
+                } catch (NoLockHeldException e){
+                    //pass
+                }
+            }
+
+            if (tableInfo != null) {
+                BacktrackingIterator<Page> piter = tableInfo.pageIterator();
+                while (piter.hasNext()) {
+                    Page p = piter.next();
+                    try {
+                        p.lockContext.release(this);
+                    } catch (NoLockHeldException e) {
+                    }
+                    p.unpin();
+                }
+                try {
+                    LockContext tcontext = getTableInfoContext();
+                    tcontext.release(this);
+                } catch (NoLockHeldException e) {
+                    //pass
+                }
+            }
+
+
+            if (indexInfo != null){
+                BacktrackingIterator<Page> piter = indexInfo.pageIterator();
+                while (piter.hasNext()){
+                    Page p = piter.next();
+                    try {
+                        p.lockContext.release(this);
+                    } catch (NoLockHeldException e){}
+                    p.unpin();
+                }
+                try{
+                    LockContext tcontext = getIndexInfoContext();
+                    tcontext.release(this);
+                } catch (NoLockHeldException e){
+                    //pass
+                }
+            }
+
+            try{
+                lockManager.databaseContext().release(this);
+            } catch (NoLockHeldException e){
+            }
         }
 
         @Override
